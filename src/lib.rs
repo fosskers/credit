@@ -30,10 +30,10 @@ pub struct Thread {
 
 /// Various compiled statistics regarding contributions to a Github repository.
 pub struct Statistics {
-    /// Rank of top thread commentors in descending order.
-    pub commentors: Vec<User>,
-    /// Rank of users with the most merged PRs in descending order.
-    pub code_contributors: Vec<User>,
+    /// All issue/PR commentors.
+    pub commentors: HashMap<User, u32>,
+    /// All users who had PRs merged.
+    pub code_contributors: HashMap<User, u32>,
     /// The count of all issues, opened or closed.
     pub all_issues: u32,
     /// All issues that have been responded to in some way.
