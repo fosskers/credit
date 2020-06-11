@@ -3,7 +3,7 @@ name = "credit"
 version = "1.0.0"
 authors = ["Colin Woodbury <colin@fosskers.ca>"]
 edition = "2018"
-description = "A tool for measuring repository contributions"
+description = "A tool for measuring Github repository contributions"
 homepage = "https://github.com/fosskers/credit"
 repository = "https://github.com/fosskers/credit"
 readme = "README.md"
@@ -12,4 +12,7 @@ keywords = ["github"]
 categories = ["command-line-utilities"]
 
 [dependencies]
+chrono = { version = "0.4", features = ["serde"] }
+serde = "1.0"
+serde_json = "1.0"
 structopt = "0.3"
