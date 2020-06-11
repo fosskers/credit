@@ -3,5 +3,13 @@ name = "credit"
 version = "1.0.0"
 authors = ["Colin Woodbury <colin@fosskers.ca>"]
 edition = "2018"
+description = "A tool for measuring repository contributions"
+homepage = "https://github.com/fosskers/credit"
+repository = "https://github.com/fosskers/credit"
+readme = "README.md"
+license = "MIT"
+keywords = ["github"]
+categories = ["command-line-utilities"]
 
 [dependencies]
+structopt = "0.3"
