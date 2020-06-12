@@ -1,13 +1,18 @@
 //! A library for measuring Github repository contributions.
 
+use auto_from::From;
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 use std::time::Duration;
 
 /// Errors that occur during Github communication, etc.
-pub enum Error {}
+#[derive(From)]
+pub enum Error {
+    Isahc(isahc::Error),
+}
 
 /// Some Github account.
+#[derive(Debug)]
 pub struct User(String);
 
 /// A thread of conversation on Github.
@@ -59,17 +64,20 @@ pub struct Statistics {
 
 /// Given a repository name, look up the [`Thread`](struct.Thread.html)
 /// statistics of all its Issues.
-pub fn repository_issues(repo: &str) -> Result<Vec<Thread>, Error> {
+pub fn repository_issues(_: &str) -> Result<Vec<Thread>, Error> {
     Ok(vec![])
 }
 
 /// Given a repository name, look up the [`Thread`](struct.Thread.html)
 /// statistics of all its PRs.
-pub fn repository_prs(repo: &str) -> Result<Vec<Thread>, Error> {
+pub fn repository_prs(_: &str) -> Result<Vec<Thread>, Error> {
     Ok(vec![])
 }
 
 /// Who are the owners of the given repository?
-pub fn repository_owners(repo: &str) -> Result<Vec<User>, Error> {
+pub fn repository_owners(_: &str) -> Result<Vec<User>, Error> {
+    let resp = isahc::get("https://www.fosskers.ca")?;
+    println!("{:#?}", resp);
+
     Ok(vec![])
 }

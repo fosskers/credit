@@ -17,7 +17,7 @@ use structopt::StructOpt;
 
 // Number of commits on `master` isn't counted - you can see that on Github :)
 
-#[derive(StructOpt)]
+#[derive(Debug, StructOpt)]
 #[structopt(about = "A tool for measuring repository contributions")]
 struct Env {
     /// Github personal access token
@@ -35,6 +35,18 @@ struct Env {
 
 fn main() {
     let env = Env::from_args();
+    match work(&env) {
+        Err(_) => eprintln!("Crap!"),
+        Ok(_) => (),
+    }
+}
 
-    println!("Hello, world!");
+fn work(env: &Env) -> Result<(), credit::Error> {
+    println!("{:#?}", env);
+
+    let owners = credit::repository_owners("foo")?;
+
+    println!("{:?}", owners);
+
+    Ok(())
 }
