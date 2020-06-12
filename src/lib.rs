@@ -2,6 +2,7 @@
 
 use auto_from::From;
 use chrono::{DateTime, Utc};
+use rayon::prelude::*;
 use std::collections::HashMap;
 use std::time::Duration;
 
@@ -76,8 +77,20 @@ pub fn repository_prs(_: &str) -> Result<Vec<Thread>, Error> {
 
 /// Who are the owners of the given repository?
 pub fn repository_owners(_: &str) -> Result<Vec<User>, Error> {
-    let resp = isahc::get("https://www.fosskers.ca")?;
-    println!("{:#?}", resp);
+    let urls: Vec<String> = vec![
+        "https://www.fosskers.ca".to_string(),
+        "https://wiki.archlinux.org".to_string(),
+        "https://www.stackage.org".to_string(),
+        "https://github.com".to_string(),
+        "https://example.org".to_string(),
+        "http://hackage.haskell.org".to_string(),
+    ];
+
+    urls.par_iter().for_each(|u| {
+        println!("Hello: {}", u);
+        let resp = isahc::get(u).expect("It was fine");
+        println!("{}: {}", u, resp.status());
+    });
 
     Ok(vec![])
 }
