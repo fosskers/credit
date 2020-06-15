@@ -44,7 +44,9 @@ fn main() {
 fn work(env: &Env) -> Result<(), credit::Error> {
     println!("{:#?}", env);
 
-    let owners = credit::repository_owners("foo")?;
+    // let owners = credit::repository_owners(&env.token, "fosskers", "aura")?;
+    // let owners = credit::issue_comments(&env.token, "fosskers", "aura", 615)?;
+    let owners = credit::issue_comments(&env.token, "kadena-io", "chainweb-node", 954)?;
 
     println!("{:?}", owners);
 
