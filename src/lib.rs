@@ -122,7 +122,10 @@ pub fn repository_threads(client: &HttpClient, owner: &str, repo: &str) -> Resul
         .par_iter()
         // TODO Handle errors better!
         .filter_map(|i| match issue_thread(client, owner, repo, i) {
-            Ok(t) => Some(t),
+            Ok(t) => {
+                println!("{}", i.state);
+                Some(t)
+            }
             Err(e) => {
                 eprintln!("{:?}", e);
                 None
@@ -143,10 +146,7 @@ fn issue_thread(
 
     // Need to be careful, since the first physical response might have been
     // from the Issue author.
-    let first_comment = comments
-        .iter()
-        .filter(|c| !c.author_association.is_author())
-        .next();
+    let first_comment = comments.iter().find(|c| !c.author_association.is_author());
 
     // TODO Possible to avoid the clone?
     let first_responder = first_comment.map(|c| c.user.clone());
@@ -154,14 +154,12 @@ fn issue_thread(
 
     let official_first_response = comments
         .iter()
-        .filter(|c| c.author_association.is_official())
-        .next()
+        .find(|c| c.author_association.is_official())
         .map(|c| c.created_at);
 
     let contributor_first_response = comments
         .iter()
-        .filter(|c| c.author_association.is_contributor())
-        .next()
+        .find(|c| c.author_association.is_contributor())
         .map(|c| c.created_at);
 
     let mut comment_counts = HashMap::new();
