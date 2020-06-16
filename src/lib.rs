@@ -2,12 +2,14 @@
 
 pub mod error;
 mod github;
+mod some;
 
 use chrono::{DateTime, Utc};
 use error::Error;
 use github::{Issue, User};
 use isahc::prelude::*;
 use rayon::prelude::*;
+use some::Someable;
 use std::collections::HashMap;
 use std::time::Duration;
 
@@ -28,10 +30,19 @@ pub struct Thread {
     pub first_response: Option<DateTime<Utc>>,
     /// When, if ever, did a repo owner first respond?
     pub owner_first_response: Option<DateTime<Utc>>,
-    /// When, if ever, did a contributor first respond?
-    pub contributor_first_response: Option<DateTime<Utc>>,
+    /// When, if ever, did an owner/member/contributor first respond?
+    pub official_first_response: Option<DateTime<Utc>>,
     /// Comment counts of everyone who participated.
     pub comments: HashMap<User, u32>,
+    /// Was this `Thread` from a Pull Request?
+    pub is_pr: bool,
+}
+
+/// A collection of Issue and Pull Request [`Thread`](struct.Thread.html)s.
+#[derive(Debug)]
+pub struct Threads {
+    pub issues: Vec<Thread>,
+    pub prs: Vec<Thread>,
 }
 
 /// Statistics involving [`Thread`](struct.Thread.html) response times.
@@ -90,24 +101,14 @@ pub fn client(token: &str) -> Result<HttpClient, Error> {
 
 /// Given a repository name, look up the [`Thread`](struct.Thread.html)
 /// statistics of all its Issues.
-pub fn repository_threads(
-    client: &HttpClient,
-    owner: &str,
-    repo: &str,
-) -> Result<Vec<Thread>, Error> {
-    let issues = github::all_issues(client, owner, repo)?;
-    let threads = issues
+pub fn repository_threads(client: &HttpClient, owner: &str, repo: &str) -> Result<Threads, Error> {
+    let raw_issues = github::all_issues(client, owner, repo)?;
+    let (prs, issues) = raw_issues
         .par_iter()
         .filter_map(|i| issue_thread(client, owner, repo, i).ok()) // TODO Handle errors better!
-        .collect();
+        .partition(|t| t.is_pr);
 
-    Ok(threads)
-}
-
-/// Given a repository name, look up the [`Thread`](struct.Thread.html)
-/// statistics of all its PRs.
-pub fn repository_prs(_: &str) -> Result<Vec<Thread>, Error> {
-    Ok(vec![])
+    Ok(Threads { issues, prs })
 }
 
 fn issue_thread(
@@ -125,13 +126,23 @@ fn issue_thread(
 
     let owner_first_response = comments
         .iter()
-        .filter(|c| c.author_association.is_owner())
+        .filter(|c| {
+            c.author_association
+                .as_ref()
+                .and_then(|a| a.is_owner().bool_some(()))
+                .is_some()
+        })
         .next()
         .map(|c| c.created_at);
 
-    let contributor_first_response = comments
+    let official_first_response = comments
         .iter()
-        .filter(|c| c.author_association.is_contributor())
+        .filter(|c| {
+            c.author_association
+                .as_ref()
+                .and_then(|a| a.is_contributor().bool_some(()))
+                .is_some()
+        })
         .next()
         .map(|c| c.created_at);
 
@@ -148,8 +159,9 @@ fn issue_thread(
         first_responder,
         first_response,
         owner_first_response,
-        contributor_first_response,
+        official_first_response,
         comments: comment_counts,
+        is_pr: issue.pull_request.is_some(),
     })
 }
 

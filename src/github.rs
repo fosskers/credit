@@ -34,8 +34,10 @@ pub struct Issue {
 #[serde(rename_all = "UPPERCASE")]
 pub enum Association {
     Owner,
+    Member,
+    Collaborator,
     Contributor,
-    Other,
+    Author,
 }
 
 impl Association {
@@ -59,7 +61,7 @@ impl Association {
 pub struct Comment {
     pub user: User,
     pub created_at: DateTime<Utc>,
-    pub author_association: Association,
+    pub author_association: Option<Association>,
 }
 
 /// All issues and PRs belonging to a repository.
