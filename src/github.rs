@@ -25,7 +25,6 @@ pub struct Issue {
     pub number: u32,
     pub state: String,
     pub user: User,
-    pub comments: u32,
     pub created_at: DateTime<Utc>,
     pub closed_at: Option<DateTime<Utc>>,
     pub merged_at: Option<DateTime<Utc>>,

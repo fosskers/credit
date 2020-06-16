@@ -36,7 +36,7 @@ struct Env {
 fn main() {
     let env = Env::from_args();
     match work(&env) {
-        Err(_) => eprintln!("Crap!"),
+        Err(e) => eprintln!("Crap: {:?}", e),
         Ok(_) => (),
     }
 }

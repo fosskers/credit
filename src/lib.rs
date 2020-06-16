@@ -10,6 +10,29 @@ use rayon::prelude::*;
 use std::collections::HashMap;
 use std::time::Duration;
 
+/// A Github Issue.
+#[derive(Debug)]
+pub struct Issue(Thread);
+
+/// A Github Pull Request.
+#[derive(Debug)]
+pub struct PR {
+    pub thread: Thread,
+    pub merged: Option<DateTime<Utc>>,
+}
+
+impl PR {
+    /// Was this Pull Request merged?
+    pub fn is_merged(&self) -> bool {
+        self.merged.is_some()
+    }
+
+    /// Was this Pull Request closed without merging?
+    pub fn is_closed_not_merged(&self) -> bool {
+        self.thread.closed.is_some() && !self.is_merged()
+    }
+}
+
 /// A thread of conversation on Github.
 ///
 /// This could either be associated with an Issue or a PR.
@@ -35,12 +58,12 @@ pub struct Thread {
 
 /// A collection of Issue and Pull Request [`Thread`](struct.Thread.html)s.
 #[derive(Debug)]
-pub struct Threads {
-    pub issues: Vec<Thread>,
-    pub prs: Vec<Thread>,
+pub struct Postings {
+    pub issues: Vec<Issue>,
+    pub prs: Vec<PR>,
 }
 
-impl Threads {
+impl Postings {
     // pub fn statistics(self) -> Statistics {
     //     Statistics {
     //         commentors: HashMap::new(),
@@ -114,25 +137,35 @@ pub fn client(token: &str) -> Result<HttpClient, Error> {
 // TODO Use a progress bar here.
 /// Given a repository name, look up the [`Thread`](struct.Thread.html)
 /// statistics of all its Issues.
-pub fn repository_threads(client: &HttpClient, owner: &str, repo: &str) -> Result<Threads, Error> {
+pub fn repository_threads(client: &HttpClient, owner: &str, repo: &str) -> Result<Postings, Error> {
     let issues = github::all_issues(client, owner, repo)?
         .par_iter()
         // TODO Handle errors better!
         .filter_map(|i| match issue_thread(client, owner, repo, i) {
-            Ok(t) => {
-                println!("{}", i.state);
-                Some(t)
-            }
+            Ok(t) => Some(Issue(t)),
             Err(e) => {
-                eprintln!("{:?}", e);
+                eprintln!("ISSUE PROBLEM: {:?}", e);
                 None
             }
         })
         .collect();
 
-    let prs = vec![];
+    let prs = github::all_prs(client, owner, repo)?
+        .par_iter()
+        // TODO Handle errors better!
+        .filter_map(|i| match issue_thread(client, owner, repo, i) {
+            Ok(t) => Some(PR {
+                thread: t,
+                merged: i.merged_at,
+            }),
+            Err(e) => {
+                eprintln!("PR PROBLEM: {:?}", e);
+                None
+            }
+        })
+        .collect();
 
-    Ok(Threads { issues, prs })
+    Ok(Postings { issues, prs })
 }
 
 fn issue_thread(
