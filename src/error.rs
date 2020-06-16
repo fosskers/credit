@@ -1,7 +1,7 @@
 use auto_from::From;
 
 /// Errors that occur during Github communication, etc.
-#[derive(From)]
+#[derive(Debug, From)]
 pub enum Error {
     Http(isahc::Error),
     Io(std::io::Error),

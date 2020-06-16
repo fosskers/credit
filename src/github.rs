@@ -38,6 +38,7 @@ pub enum Association {
     Collaborator,
     Contributor,
     Author,
+    None,
 }
 
 impl Association {
@@ -54,6 +55,13 @@ impl Association {
             _ => false,
         }
     }
+
+    pub fn is_author(&self) -> bool {
+        match self {
+            Association::Author => true,
+            _ => false,
+        }
+    }
 }
 
 /// An issue comment.
@@ -61,7 +69,7 @@ impl Association {
 pub struct Comment {
     pub user: User,
     pub created_at: DateTime<Utc>,
-    pub author_association: Option<Association>,
+    pub author_association: Association,
 }
 
 /// All issues and PRs belonging to a repository.

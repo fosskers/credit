@@ -2,14 +2,12 @@
 
 pub mod error;
 mod github;
-mod some;
 
 use chrono::{DateTime, Utc};
 use error::Error;
 use github::{Issue, User};
 use isahc::prelude::*;
 use rayon::prelude::*;
-use some::Someable;
 use std::collections::HashMap;
 use std::time::Duration;
 
@@ -105,7 +103,8 @@ pub fn repository_threads(client: &HttpClient, owner: &str, repo: &str) -> Resul
     let raw_issues = github::all_issues(client, owner, repo)?;
     let (prs, issues) = raw_issues
         .par_iter()
-        .filter_map(|i| issue_thread(client, owner, repo, i).ok()) // TODO Handle errors better!
+        // TODO Handle errors better!
+        .filter_map(|i| issue_thread(client, owner, repo, i).ok())
         .partition(|t| t.is_pr);
 
     Ok(Threads { issues, prs })
@@ -119,30 +118,26 @@ fn issue_thread(
 ) -> Result<Thread, Error> {
     let comments = github::issue_comments(client, owner, repo, issue.number)?;
 
-    let first_comment = comments.get(0);
+    // Need to be careful, since the first physical response might have been
+    // from the Issue author.
+    let first_comment = comments
+        .iter()
+        .filter(|c| !c.author_association.is_author())
+        .next();
+
     // TODO Possible to avoid the clone?
     let first_responder = first_comment.map(|c| c.user.clone());
     let first_response = first_comment.map(|c| c.created_at);
 
     let owner_first_response = comments
         .iter()
-        .filter(|c| {
-            c.author_association
-                .as_ref()
-                .and_then(|a| a.is_owner().bool_some(()))
-                .is_some()
-        })
+        .filter(|c| c.author_association.is_owner())
         .next()
         .map(|c| c.created_at);
 
     let official_first_response = comments
         .iter()
-        .filter(|c| {
-            c.author_association
-                .as_ref()
-                .and_then(|a| a.is_contributor().bool_some(()))
-                .is_some()
-        })
+        .filter(|c| c.author_association.is_contributor())
         .next()
         .map(|c| c.created_at);
 
