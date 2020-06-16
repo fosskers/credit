@@ -1,26 +1,20 @@
 //! A library for measuring Github repository contributions.
 
-use auto_from::From;
+pub mod error;
+mod github;
+
 use chrono::{DateTime, Utc};
+use error::Error;
+use github::{Issue, User};
 use isahc::prelude::*;
-// use rayon::prelude::*;
+use rayon::prelude::*;
 use std::collections::HashMap;
 use std::time::Duration;
-
-/// Errors that occur during Github communication, etc.
-#[derive(From)]
-pub enum Error {
-    Isahc(isahc::Error),
-    Io(std::io::Error),
-}
-
-/// Some Github account.
-#[derive(Debug)]
-pub struct User(String);
 
 /// A thread of conversation on Github.
 ///
 /// This could either be associated with an Issue or a PR.
+#[derive(Debug)]
 pub struct Thread {
     /// Who opened the thread?
     pub author: User,
@@ -29,7 +23,9 @@ pub struct Thread {
     /// If it's already closed, when was it?
     pub closed: Option<DateTime<Utc>>,
     /// Who responded first?
-    pub first_responser: User,
+    pub first_responder: Option<User>,
+    /// When, if ever, was the first response?
+    pub first_response: Option<DateTime<Utc>>,
     /// When, if ever, did a repo owner first respond?
     pub owner_first_response: Option<DateTime<Utc>>,
     /// When, if ever, did a contributor first respond?
@@ -82,10 +78,30 @@ pub struct Statistics {
     pub pr_owner_first_resp_time: ResponseTimes,
 }
 
+/// Generate a client with preset headers for communicating with the Github API.
+pub fn client(token: &str) -> Result<HttpClient, Error> {
+    let client = HttpClient::builder()
+        .default_header("Accept", "application/vnd.github.v3+json")
+        .default_header("Authorization", format!("token {}", token))
+        .build()?;
+
+    Ok(client)
+}
+
 /// Given a repository name, look up the [`Thread`](struct.Thread.html)
 /// statistics of all its Issues.
-pub fn repository_issues(_: &str) -> Result<Vec<Thread>, Error> {
-    Ok(vec![])
+pub fn repository_threads(
+    client: &HttpClient,
+    owner: &str,
+    repo: &str,
+) -> Result<Vec<Thread>, Error> {
+    let issues = github::all_issues(client, owner, repo)?;
+    let threads = issues
+        .par_iter()
+        .filter_map(|i| issue_thread(client, owner, repo, i).ok()) // TODO Handle errors better!
+        .collect();
+
+    Ok(threads)
 }
 
 /// Given a repository name, look up the [`Thread`](struct.Thread.html)
@@ -94,24 +110,54 @@ pub fn repository_prs(_: &str) -> Result<Vec<Thread>, Error> {
     Ok(vec![])
 }
 
-pub fn issue_comments(token: &str, owner: &str, repo: &str, issue: u32) -> Result<(), Error> {
-    let url = format!(
-        "https://api.github.com/repos/{}/{}/issues/{}/comments",
-        owner, repo, issue
-    );
+fn issue_thread(
+    client: &HttpClient,
+    owner: &str,
+    repo: &str,
+    issue: &Issue,
+) -> Result<Thread, Error> {
+    let comments = github::issue_comments(client, owner, repo, issue.number)?;
 
-    let client = HttpClient::builder()
-        .default_header("Accept", "application/vnd.github.v3+json")
-        .default_header("Authorization", format!("token {}", token))
-        .build()?;
+    let first_comment = comments.get(0);
+    // TODO Possible to avoid the clone?
+    let first_responder = first_comment.map(|c| c.user.clone());
+    let first_response = first_comment.map(|c| c.created_at);
 
-    let mut response = client.get(url)?;
-    let body = response.text()?;
+    let owner_first_response = comments
+        .iter()
+        .filter(|c| c.author_association.is_owner())
+        .next()
+        .map(|c| c.created_at);
 
-    println!("RESPONSE BODY: {}", body);
+    let contributor_first_response = comments
+        .iter()
+        .filter(|c| c.author_association.is_contributor())
+        .next()
+        .map(|c| c.created_at);
 
-    Ok(())
+    let mut comment_counts = HashMap::new();
+    for c in comments {
+        let counter = comment_counts.entry(c.user).or_insert(0);
+        *counter += 1;
+    }
+
+    Ok(Thread {
+        author: issue.user.clone(),
+        posted: issue.created_at,
+        closed: issue.closed_at,
+        first_responder,
+        first_response,
+        owner_first_response,
+        contributor_first_response,
+        comments: comment_counts,
+    })
 }
 
 // Pagination notes: https://developer.github.com/v3/#pagination
 // - Can ask for 100 items per page.
+
+// 1. Determine all issue numbers.
+// 2. For each issue:
+//    a. Get its main stats.
+//    b. Get all its comments.
+//    c. Form a `Thread`.

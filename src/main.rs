@@ -41,14 +41,13 @@ fn main() {
     }
 }
 
-fn work(env: &Env) -> Result<(), credit::Error> {
+fn work(env: &Env) -> Result<(), credit::error::Error> {
     println!("{:#?}", env);
 
-    // let owners = credit::repository_owners(&env.token, "fosskers", "aura")?;
-    // let owners = credit::issue_comments(&env.token, "fosskers", "aura", 615)?;
-    let owners = credit::issue_comments(&env.token, "kadena-io", "chainweb-node", 954)?;
+    let client = credit::client(&env.token)?;
+    let threads = credit::repository_threads(&client, "fosskers", "versions")?;
 
-    println!("{:?}", owners);
+    println!("{:#?}", threads);
 
     Ok(())
 }
