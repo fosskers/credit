@@ -7,7 +7,7 @@ use isahc::prelude::*;
 use serde::Deserialize;
 
 /// Some Github account.
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct User {
     pub login: String,
 }
@@ -19,7 +19,7 @@ pub struct PRField {
     pub url: String,
 }
 
-/// A reduced form of the full response of an Issue query.
+/// A reduced form of the full response of an Issue or Pull Request query.
 #[derive(Debug, Deserialize)]
 pub struct Issue {
     pub number: u32,
@@ -28,32 +28,8 @@ pub struct Issue {
     pub comments: u32,
     pub created_at: DateTime<Utc>,
     pub closed_at: Option<DateTime<Utc>>,
-    pub pull_request: Option<PRField>,
-}
-
-/// A reduced form of the full response of a Pull Request query.
-#[derive(Debug, Deserialize)]
-pub struct PR {
-    pub number: u32,
-    pub state: String,
-    pub user: User,
-    pub comments: u32,
-    pub created_at: DateTime<Utc>,
-    pub closed_at: Option<DateTime<Utc>>,
     pub merged_at: Option<DateTime<Utc>>,
-    pub author_association: Association,
-}
-
-impl PR {
-    /// Has this Pull Request been merged?
-    pub fn is_merged(&self) -> bool {
-        self.merged_at.is_some()
-    }
-
-    /// Was this Pull Request closed without merging?
-    pub fn is_closed_not_merged(&self) -> bool {
-        self.closed_at.is_some() && self.merged_at.is_none()
-    }
+    pub pull_request: Option<PRField>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -119,7 +95,7 @@ pub fn all_issues(client: &HttpClient, owner: &str, repo: &str) -> Result<Vec<Is
         .get(url)?
         .json::<Vec<Issue>>()?
         .into_iter()
-        .filter(|i| i.pull_request.is_some())
+        .filter(|i| i.pull_request.is_none())
         .collect();
 
     Ok(issues)
@@ -143,13 +119,13 @@ pub fn issue_comments(
 }
 
 /// All Pull Requests belonging to a repository, regardless of status.
-pub fn all_prs(client: &HttpClient, owner: &str, repo: &str) -> Result<Vec<PR>, Error> {
+pub fn all_prs(client: &HttpClient, owner: &str, repo: &str) -> Result<Vec<Issue>, Error> {
     let url = format!(
         "https://api.github.com/repos/{}/{}/pulls?state=all",
         owner, repo
     );
 
-    let issues = client.get(url)?.json()?;
+    let prs = client.get(url)?.json()?;
 
-    Ok(issues)
+    Ok(prs)
 }

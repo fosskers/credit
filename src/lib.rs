@@ -5,7 +5,6 @@ mod github;
 
 use chrono::{DateTime, Utc};
 use error::Error;
-use github::{Issue, User};
 use isahc::prelude::*;
 use rayon::prelude::*;
 use std::collections::HashMap;
@@ -17,13 +16,13 @@ use std::time::Duration;
 #[derive(Debug)]
 pub struct Thread {
     /// Who opened the thread?
-    pub author: User,
+    pub author: String,
     /// When was the thread opened?
     pub posted: DateTime<Utc>,
     /// If it's already closed, when was it?
     pub closed: Option<DateTime<Utc>>,
     /// Who responded first?
-    pub first_responder: Option<User>,
+    pub first_responder: Option<String>,
     /// When, if ever, was the first response?
     pub first_response: Option<DateTime<Utc>>,
     /// When, if ever, was there an "official" response?
@@ -31,9 +30,7 @@ pub struct Thread {
     /// When, if ever, did an owner/member/collaborator/contributor first respond?
     pub contributor_first_response: Option<DateTime<Utc>>,
     /// Comment counts of everyone who participated.
-    pub comments: HashMap<User, u32>,
-    /// Was this `Thread` from a Pull Request?
-    pub is_pr: bool,
+    pub comments: HashMap<String, u32>,
 }
 
 /// A collection of Issue and Pull Request [`Thread`](struct.Thread.html)s.
@@ -70,9 +67,9 @@ pub struct ResponseTimes {
 /// "Contributor" as marked by Github.
 pub struct Statistics {
     /// All issue/PR commentors.
-    pub commentors: HashMap<User, u32>,
+    pub commentors: HashMap<String, u32>,
     /// All users who had PRs merged.
-    pub code_contributors: HashMap<User, u32>,
+    pub code_contributors: HashMap<String, u32>,
     /// The count of all issues, opened or closed.
     pub all_issues: u32,
     /// All issues that have been responded to in some way.
@@ -118,7 +115,7 @@ pub fn client(token: &str) -> Result<HttpClient, Error> {
 /// Given a repository name, look up the [`Thread`](struct.Thread.html)
 /// statistics of all its Issues.
 pub fn repository_threads(client: &HttpClient, owner: &str, repo: &str) -> Result<Threads, Error> {
-    let (prs, issues) = github::all_issues(client, owner, repo)?
+    let issues = github::all_issues(client, owner, repo)?
         .par_iter()
         // TODO Handle errors better!
         .filter_map(|i| match issue_thread(client, owner, repo, i) {
@@ -131,7 +128,9 @@ pub fn repository_threads(client: &HttpClient, owner: &str, repo: &str) -> Resul
                 None
             }
         })
-        .partition(|t| t.is_pr);
+        .collect();
+
+    let prs = vec![];
 
     Ok(Threads { issues, prs })
 }
@@ -140,7 +139,7 @@ fn issue_thread(
     client: &HttpClient,
     owner: &str,
     repo: &str,
-    issue: &Issue,
+    issue: &github::Issue,
 ) -> Result<Thread, Error> {
     let comments = github::issue_comments(client, owner, repo, issue.number)?;
 
@@ -148,8 +147,7 @@ fn issue_thread(
     // from the Issue author.
     let first_comment = comments.iter().find(|c| !c.author_association.is_author());
 
-    // TODO Possible to avoid the clone?
-    let first_responder = first_comment.map(|c| c.user.clone());
+    let first_responder = first_comment.map(|c| c.user.login.clone());
     let first_response = first_comment.map(|c| c.created_at);
 
     let official_first_response = comments
@@ -164,12 +162,12 @@ fn issue_thread(
 
     let mut comment_counts = HashMap::new();
     for c in comments {
-        let counter = comment_counts.entry(c.user).or_insert(0);
+        let counter = comment_counts.entry(c.user.login).or_insert(0);
         *counter += 1;
     }
 
     Ok(Thread {
-        author: issue.user.clone(),
+        author: issue.user.login.clone(),
         posted: issue.created_at,
         closed: issue.closed_at,
         first_responder,
@@ -177,7 +175,6 @@ fn issue_thread(
         official_first_response,
         contributor_first_response,
         comments: comment_counts,
-        is_pr: issue.pull_request.is_some(),
     })
 }
 
