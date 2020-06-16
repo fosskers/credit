@@ -42,15 +42,20 @@ pub enum Association {
 }
 
 impl Association {
-    pub fn is_owner(&self) -> bool {
+    pub fn is_official(&self) -> bool {
         match self {
             Association::Owner => true,
+            Association::Member => true,
+            Association::Collaborator => true,
             _ => false,
         }
     }
 
     pub fn is_contributor(&self) -> bool {
         match self {
+            Association::Owner => true,
+            Association::Member => true,
+            Association::Collaborator => true,
             Association::Contributor => true,
             _ => false,
         }

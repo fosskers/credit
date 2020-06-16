@@ -26,10 +26,10 @@ pub struct Thread {
     pub first_responder: Option<User>,
     /// When, if ever, was the first response?
     pub first_response: Option<DateTime<Utc>>,
-    /// When, if ever, did a repo owner first respond?
-    pub owner_first_response: Option<DateTime<Utc>>,
-    /// When, if ever, did an owner/member/contributor first respond?
+    /// When, if ever, was there an "official" response?
     pub official_first_response: Option<DateTime<Utc>>,
+    /// When, if ever, did an owner/member/collaborator/contributor first respond?
+    pub contributor_first_response: Option<DateTime<Utc>>,
     /// Comment counts of everyone who participated.
     pub comments: HashMap<User, u32>,
     /// Was this `Thread` from a Pull Request?
@@ -43,6 +43,17 @@ pub struct Threads {
     pub prs: Vec<Thread>,
 }
 
+impl Threads {
+    // pub fn statistics(self) -> Statistics {
+    //     Statistics {
+    //         commentors: HashMap::new(),
+    //         code_contributors: HashMap::new(),
+    //         all_issues: 0,
+    //         issues_with_responses
+    //     }
+    // }
+}
+
 /// Statistics involving [`Thread`](struct.Thread.html) response times.
 pub struct ResponseTimes {
     pub median_response_time: Duration,
@@ -51,6 +62,12 @@ pub struct ResponseTimes {
 }
 
 /// Various compiled statistics regarding contributions to a Github repository.
+///
+/// For the relevant fields below, an "official" response is any made by a
+/// repository Owner, an organization Member, or an invited Collaborator.
+///
+/// A "contributor" response is any made by the above three types or a
+/// "Contributor" as marked by Github.
 pub struct Statistics {
     /// All issue/PR commentors.
     pub commentors: HashMap<User, u32>,
@@ -60,31 +77,31 @@ pub struct Statistics {
     pub all_issues: u32,
     /// All issues that have been responded to in some way.
     pub issues_with_responses: u32,
-    /// All issues that have been responded to by an official contributor.
+    /// All issues that have been responded to "officially".
+    pub issues_with_official_responses: u32,
+    /// All issues that have been responded to by any contributor.
     pub issues_with_contributor_responses: u32,
-    /// All issues that have been responded to by a repo owner.
-    pub issues_with_owner_responses: u32,
     /// How long does it take for someone to respond to an issue?
     pub issue_first_resp_time: ResponseTimes,
-    /// How long does it take for an official contributor to respond to an
+    /// How long does it take for an "official" response?
+    pub issue_official_first_resp_time: ResponseTimes,
+    /// How long does it take for any contributor to respond to an
     /// issue?
-    pub issue_collaborator_first_resp_time: ResponseTimes,
-    /// How long does it take for a repo owner to respond to an issue?
-    pub issue_owner_first_resp_time: ResponseTimes,
+    pub issue_contributor_first_resp_time: ResponseTimes,
     /// The count of all PRs, opened or closed.
     pub all_prs: u32,
     /// All PRs that have been responded to in some way.
     pub prs_with_responses: u32,
-    /// All PRs that have been responded to by an official contributor.
+    /// All PRs that have been responded to officially.
+    pub prs_with_official_responses: u32,
+    /// All PRs that have been responded to by any contributor.
     pub prs_with_contributor_responses: u32,
-    /// All PRs that have been responded to by a repo owner.
-    pub prs_with_owner_responses: u32,
     /// How long does it take for someone to respond to a PR?
     pub pr_first_resp_time: ResponseTimes,
-    /// How long does it take for an official contributor to respond to a PR?
+    /// How long does it take for an "official" response to a PR?
+    pub pr_official_first_resp_time: ResponseTimes,
+    /// How long does it take for any contributor to respond to a PR?
     pub pr_contributor_first_resp_time: ResponseTimes,
-    /// How long does it take for a repo owner to respond to a PR?
-    pub pr_owner_first_resp_time: ResponseTimes,
 }
 
 /// Generate a client with preset headers for communicating with the Github API.
@@ -97,14 +114,20 @@ pub fn client(token: &str) -> Result<HttpClient, Error> {
     Ok(client)
 }
 
+// TODO Use a progress bar here.
 /// Given a repository name, look up the [`Thread`](struct.Thread.html)
 /// statistics of all its Issues.
 pub fn repository_threads(client: &HttpClient, owner: &str, repo: &str) -> Result<Threads, Error> {
-    let raw_issues = github::all_issues(client, owner, repo)?;
-    let (prs, issues) = raw_issues
+    let (prs, issues) = github::all_issues(client, owner, repo)?
         .par_iter()
         // TODO Handle errors better!
-        .filter_map(|i| issue_thread(client, owner, repo, i).ok())
+        .filter_map(|i| match issue_thread(client, owner, repo, i) {
+            Ok(t) => Some(t),
+            Err(e) => {
+                eprintln!("{:?}", e);
+                None
+            }
+        })
         .partition(|t| t.is_pr);
 
     Ok(Threads { issues, prs })
@@ -129,13 +152,13 @@ fn issue_thread(
     let first_responder = first_comment.map(|c| c.user.clone());
     let first_response = first_comment.map(|c| c.created_at);
 
-    let owner_first_response = comments
+    let official_first_response = comments
         .iter()
-        .filter(|c| c.author_association.is_owner())
+        .filter(|c| c.author_association.is_official())
         .next()
         .map(|c| c.created_at);
 
-    let official_first_response = comments
+    let contributor_first_response = comments
         .iter()
         .filter(|c| c.author_association.is_contributor())
         .next()
@@ -153,8 +176,8 @@ fn issue_thread(
         closed: issue.closed_at,
         first_responder,
         first_response,
-        owner_first_response,
         official_first_response,
+        contributor_first_response,
         comments: comment_counts,
         is_pr: issue.pull_request.is_some(),
     })
@@ -162,9 +185,3 @@ fn issue_thread(
 
 // Pagination notes: https://developer.github.com/v3/#pagination
 // - Can ask for 100 items per page.
-
-// 1. Determine all issue numbers.
-// 2. For each issue:
-//    a. Get its main stats.
-//    b. Get all its comments.
-//    c. Form a `Thread`.
