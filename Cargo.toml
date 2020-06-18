@@ -12,7 +12,7 @@ keywords = ["github"]
 categories = ["command-line-utilities"]
 
 [dependencies]
-auto_from = "0.3"
+anyhow = "1.0"
 chrono = { version = "0.4", features = ["serde"] }
 isahc = { version = "0.9", features = ["json"] }
 itertools = "0.9"

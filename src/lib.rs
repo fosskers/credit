@@ -1,10 +1,8 @@
 //! A library for measuring Github repository contributions.
 
-pub mod error;
 mod github;
 
 use chrono::{DateTime, Duration, Utc};
-use error::Error;
 use isahc::prelude::*;
 use itertools::Itertools;
 use rayon::prelude::*;
@@ -242,7 +240,7 @@ pub struct Statistics {
 }
 
 /// Generate a client with preset headers for communicating with the Github API.
-pub fn client(token: &str) -> Result<HttpClient, Error> {
+pub fn client(token: &str) -> anyhow::Result<HttpClient> {
     let client = HttpClient::builder()
         .default_header("Accept", "application/vnd.github.v3+json")
         .default_header("Authorization", format!("token {}", token))
@@ -254,7 +252,11 @@ pub fn client(token: &str) -> Result<HttpClient, Error> {
 // TODO Use a progress bar here.
 /// Given a repository name, look up the [`Thread`](struct.Thread.html)
 /// statistics of all its Issues.
-pub fn repository_threads(client: &HttpClient, owner: &str, repo: &str) -> Result<Postings, Error> {
+pub fn repository_threads(
+    client: &HttpClient,
+    owner: &str,
+    repo: &str,
+) -> anyhow::Result<Postings> {
     let issues = github::all_issues(client, owner, repo)?
         .par_iter()
         // TODO Handle errors better!
@@ -290,7 +292,7 @@ fn issue_thread(
     owner: &str,
     repo: &str,
     issue: &github::Issue,
-) -> Result<Thread, Error> {
+) -> anyhow::Result<Thread> {
     let comments = github::issue_comments(client, owner, repo, issue.number)?;
 
     // Need to be careful, since the first physical response might have been

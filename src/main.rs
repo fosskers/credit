@@ -41,11 +41,11 @@ fn main() {
     }
 }
 
-fn work(env: &Env) -> Result<(), credit::error::Error> {
+fn work(env: &Env) -> anyhow::Result<()> {
     println!("{:#?}", env);
 
     let client = credit::client(&env.token)?;
-    let postings = credit::repository_threads(&client, "fosskers", "versions")?;
+    let postings = credit::repository_threads(&client, "kadena-io", "chainweb-node")?;
     let stats = postings.statistics();
 
     println!("{:#?}", stats);

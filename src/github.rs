@@ -1,7 +1,6 @@
 //! Github API types in reduced forms. Only the fields that are useful to
 //! `credit` are exposed.
 
-use crate::error::Error;
 use chrono::{DateTime, Utc};
 use isahc::prelude::*;
 use serde::Deserialize;
@@ -84,7 +83,7 @@ pub struct Comment {
 ///
 /// > GitHub's REST API v3 considers every pull request an issue, but not every
 /// > issue is a pull request.
-pub fn all_issues(client: &HttpClient, owner: &str, repo: &str) -> Result<Vec<Issue>, Error> {
+pub fn all_issues(client: &HttpClient, owner: &str, repo: &str) -> anyhow::Result<Vec<Issue>> {
     let url = format!(
         "https://api.github.com/repos/{}/{}/issues?state=all",
         owner, repo
@@ -106,7 +105,7 @@ pub fn issue_comments(
     owner: &str,
     repo: &str,
     issue: u32,
-) -> Result<Vec<Comment>, Error> {
+) -> anyhow::Result<Vec<Comment>> {
     let url = format!(
         "https://api.github.com/repos/{}/{}/issues/{}/comments",
         owner, repo, issue
@@ -118,7 +117,7 @@ pub fn issue_comments(
 }
 
 /// All Pull Requests belonging to a repository, regardless of status.
-pub fn all_prs(client: &HttpClient, owner: &str, repo: &str) -> Result<Vec<Issue>, Error> {
+pub fn all_prs(client: &HttpClient, owner: &str, repo: &str) -> anyhow::Result<Vec<Issue>> {
     let url = format!(
         "https://api.github.com/repos/{}/{}/pulls?state=all",
         owner, repo
