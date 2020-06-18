@@ -56,7 +56,7 @@ pub struct Thread {
     /// When, if ever, did an owner/member/collaborator/contributor first respond?
     pub first_contributor_response: Option<DateTime<Utc>>,
     /// Comment counts of everyone who participated.
-    pub comments: HashMap<String, u32>,
+    pub comments: HashMap<String, usize>,
 }
 
 /// A collection of Issue and Pull Request [`Thread`](struct.Thread.html)s.
@@ -223,7 +223,7 @@ pub struct ResponseTimes {
 #[derive(Debug, Serialize)]
 pub struct Statistics {
     /// All issue/PR commentors.
-    pub commentors: HashMap<String, u32>,
+    pub commentors: HashMap<String, usize>,
     /// All users who had PRs merged.
     pub code_contributors: HashMap<String, usize>,
     /// The count of all issues, opened or closed.
