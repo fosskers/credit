@@ -3,12 +3,12 @@
 pub mod error;
 mod github;
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Duration, Utc};
 use error::Error;
 use isahc::prelude::*;
+use itertools::Itertools;
 use rayon::prelude::*;
 use std::collections::HashMap;
-use std::time::Duration;
 
 /// A Github Issue.
 #[derive(Debug)]
@@ -49,9 +49,9 @@ pub struct Thread {
     /// When, if ever, was the first response?
     pub first_response: Option<DateTime<Utc>>,
     /// When, if ever, was there an "official" response?
-    pub official_first_response: Option<DateTime<Utc>>,
+    pub first_official_response: Option<DateTime<Utc>>,
     /// When, if ever, did an owner/member/collaborator/contributor first respond?
-    pub contributor_first_response: Option<DateTime<Utc>>,
+    pub first_contributor_response: Option<DateTime<Utc>>,
     /// Comment counts of everyone who participated.
     pub comments: HashMap<String, u32>,
 }
@@ -64,21 +64,94 @@ pub struct Postings {
 }
 
 impl Postings {
-    // pub fn statistics(self) -> Statistics {
-    //     Statistics {
-    //         commentors: HashMap::new(),
-    //         code_contributors: HashMap::new(),
-    //         all_issues: 0,
-    //         issues_with_responses
-    //     }
-    // }
+    pub fn statistics(&self) -> Statistics {
+        Statistics {
+            commentors: HashMap::new(),
+            code_contributors: HashMap::new(),
+            all_issues: self.issues.len(),
+            issues_with_responses: self
+                .issues
+                .iter()
+                .filter_map(|i| i.0.first_response)
+                .count(),
+            issues_with_official_responses: self
+                .issues
+                .iter()
+                .filter_map(|i| i.0.first_official_response)
+                .count(),
+            issues_with_contributor_responses: self
+                .issues
+                .iter()
+                .filter_map(|i| i.0.first_contributor_response)
+                .count(),
+            issue_first_resp_time: self
+                .resp_times(|| self.issues.iter().map(|i| &i.0), |t| t.first_response),
+            issue_official_first_resp_time: self.resp_times(
+                || self.issues.iter().map(|i| &i.0),
+                |t| t.first_official_response,
+            ),
+            issue_contributor_first_resp_time: self.resp_times(
+                || self.issues.iter().map(|i| &i.0),
+                |t| t.first_contributor_response,
+            ),
+            all_prs: self.prs.len(),
+            prs_with_responses: self
+                .prs
+                .iter()
+                .filter_map(|p| p.thread.first_response)
+                .count(),
+            prs_with_official_responses: self
+                .prs
+                .iter()
+                .filter_map(|p| p.thread.first_official_response)
+                .count(),
+            prs_with_contributor_responses: self
+                .prs
+                .iter()
+                .filter_map(|p| p.thread.first_contributor_response)
+                .count(),
+            pr_first_resp_time: self
+                .resp_times(|| self.prs.iter().map(|p| &p.thread), |t| t.first_response),
+            pr_official_first_resp_time: self.resp_times(
+                || self.prs.iter().map(|p| &p.thread),
+                |t| t.first_official_response,
+            ),
+            pr_contributor_first_resp_time: self.resp_times(
+                || self.prs.iter().map(|p| &p.thread),
+                |t| t.first_contributor_response,
+            ),
+        }
+    }
+
+    /// Gather the mean/median response times in a generic way.
+    fn resp_times<'a, F, G, T>(&self, f: F, g: G) -> Option<ResponseTimes>
+    where
+        F: FnOnce() -> T,
+        G: Fn(&Thread) -> Option<DateTime<Utc>>,
+        T: Iterator<Item = &'a Thread>,
+    {
+        let resp_times: Vec<Duration> = f()
+            .filter_map(|t| g(t).map(|r| r - t.posted))
+            .sorted()
+            .collect();
+
+        if resp_times.is_empty() {
+            None
+        } else {
+            let median = *resp_times.get(resp_times.len() / 2)?;
+            let mean = resp_times
+                .iter()
+                .fold(Duration::seconds(0), |acc, x| acc + *x);
+            Some(ResponseTimes { median, mean })
+        }
+    }
 }
 
 /// Statistics involving [`Thread`](struct.Thread.html) response times.
 pub struct ResponseTimes {
-    pub median_response_time: Duration,
-    pub mean_response_time: Duration,
-    pub std_deviation: f64,
+    pub median: Duration,
+    pub mean: Duration,
+    // pub std_deviation: f64,
 }
 
 /// Various compiled statistics regarding contributions to a Github repository.
@@ -94,34 +167,34 @@ pub struct Statistics {
     /// All users who had PRs merged.
     pub code_contributors: HashMap<String, u32>,
     /// The count of all issues, opened or closed.
-    pub all_issues: u32,
+    pub all_issues: usize,
     /// All issues that have been responded to in some way.
-    pub issues_with_responses: u32,
+    pub issues_with_responses: usize,
     /// All issues that have been responded to "officially".
-    pub issues_with_official_responses: u32,
+    pub issues_with_official_responses: usize,
     /// All issues that have been responded to by any contributor.
-    pub issues_with_contributor_responses: u32,
+    pub issues_with_contributor_responses: usize,
     /// How long does it take for someone to respond to an issue?
-    pub issue_first_resp_time: ResponseTimes,
+    pub issue_first_resp_time: Option<ResponseTimes>,
     /// How long does it take for an "official" response?
-    pub issue_official_first_resp_time: ResponseTimes,
+    pub issue_official_first_resp_time: Option<ResponseTimes>,
     /// How long does it take for any contributor to respond to an
     /// issue?
-    pub issue_contributor_first_resp_time: ResponseTimes,
+    pub issue_contributor_first_resp_time: Option<ResponseTimes>,
     /// The count of all PRs, opened or closed.
-    pub all_prs: u32,
+    pub all_prs: usize,
     /// All PRs that have been responded to in some way.
-    pub prs_with_responses: u32,
+    pub prs_with_responses: usize,
     /// All PRs that have been responded to officially.
-    pub prs_with_official_responses: u32,
+    pub prs_with_official_responses: usize,
     /// All PRs that have been responded to by any contributor.
-    pub prs_with_contributor_responses: u32,
+    pub prs_with_contributor_responses: usize,
     /// How long does it take for someone to respond to a PR?
-    pub pr_first_resp_time: ResponseTimes,
+    pub pr_first_resp_time: Option<ResponseTimes>,
     /// How long does it take for an "official" response to a PR?
-    pub pr_official_first_resp_time: ResponseTimes,
+    pub pr_official_first_resp_time: Option<ResponseTimes>,
     /// How long does it take for any contributor to respond to a PR?
-    pub pr_contributor_first_resp_time: ResponseTimes,
+    pub pr_contributor_first_resp_time: Option<ResponseTimes>,
 }
 
 /// Generate a client with preset headers for communicating with the Github API.
@@ -183,12 +256,12 @@ fn issue_thread(
     let first_responder = first_comment.map(|c| c.user.login.clone());
     let first_response = first_comment.map(|c| c.created_at);
 
-    let official_first_response = comments
+    let first_official_response = comments
         .iter()
         .find(|c| c.author_association.is_official())
         .map(|c| c.created_at);
 
-    let contributor_first_response = comments
+    let first_contributor_response = comments
         .iter()
         .find(|c| c.author_association.is_contributor())
         .map(|c| c.created_at);
@@ -205,8 +278,8 @@ fn issue_thread(
         closed: issue.closed_at,
         first_responder,
         first_response,
-        official_first_response,
-        contributor_first_response,
+        first_official_response,
+        first_contributor_response,
         comments: comment_counts,
     })
 }

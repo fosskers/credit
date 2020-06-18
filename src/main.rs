@@ -45,9 +45,11 @@ fn work(env: &Env) -> Result<(), credit::error::Error> {
     println!("{:#?}", env);
 
     let client = credit::client(&env.token)?;
-    let threads = credit::repository_threads(&client, "fosskers", "versions")?;
+    let postings = credit::repository_threads(&client, "fosskers", "versions")?;
 
-    println!("{:#?}", threads);
+    println!("{:#?}", postings);
+    println!("There are {} issues.", postings.issues.len());
+    println!("There are {} PRs.", postings.prs.len());
 
     Ok(())
 }
