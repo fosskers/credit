@@ -19,3 +19,4 @@ isahc = { version = "0.9", features = ["json"] }
 itertools = "0.9"
 rayon = "1.3"
 serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"

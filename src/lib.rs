@@ -3,11 +3,13 @@
 mod github;
 
 use anyhow::Context;
-use chrono::{DateTime, Duration, Utc};
+use chrono::{DateTime, Utc};
 use isahc::prelude::*;
 use itertools::Itertools;
 use rayon::prelude::*;
+use serde::Serialize;
 use std::collections::HashMap;
+use std::time::Duration;
 
 /// A Github Issue.
 #[derive(Debug)]
@@ -171,7 +173,7 @@ impl Postings {
         G: Fn(&Thread) -> Option<DateTime<Utc>>,
         T: Iterator<Item = &'a Thread>,
     {
-        let resp_times: Vec<Duration> = f()
+        let resp_times: Vec<chrono::Duration> = f()
             .filter_map(|t| g(t).map(|r| r - t.posted))
             .sorted()
             .collect();
@@ -179,17 +181,24 @@ impl Postings {
         if resp_times.is_empty() {
             None
         } else {
-            let median = *resp_times.get(resp_times.len() / 2)?;
+            // `to_std` will error if the `Duration` is less than 0. That shouldn't
+            // happen, since comments should always occur after the initial posting
+            // time of the thread.
+            let median = resp_times
+                .get(resp_times.len() / 2)
+                .and_then(|t| t.to_std().ok())?;
             let mean = resp_times
                 .iter()
-                .fold(Duration::seconds(0), |acc, x| acc + *x);
+                .fold(chrono::Duration::seconds(0), |acc, x| acc + *x)
+                .to_std()
+                .ok()?;
             Some(ResponseTimes { median, mean })
         }
     }
 }
 
 /// Statistics involving [`Thread`](struct.Thread.html) response times.
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct ResponseTimes {
     pub median: Duration,
     pub mean: Duration,
@@ -203,7 +212,7 @@ pub struct ResponseTimes {
 ///
 /// A "contributor" response is any made by the above three types or a
 /// "Contributor" as marked by Github.
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct Statistics {
     /// All issue/PR commentors.
     pub commentors: HashMap<String, u32>,

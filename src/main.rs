@@ -2,6 +2,7 @@
 
 use anyhow::anyhow;
 use gumdrop::{Options, ParsingStyle};
+use std::process;
 
 //- ~credit~: Just pull as much as possible via the Github API.
 //- Who comments the most?
@@ -38,19 +39,25 @@ struct Env {
 fn main() {
     let env = Env::parse_args_or_exit(ParsingStyle::AllOptions);
     match work(&env) {
-        Err(e) => eprintln!("{}", e),
-        Ok(_) => (),
+        Ok(result) => print!("{}", result),
+        Err(e) => {
+            eprintln!("{}", e);
+            process::exit(1)
+        }
     }
 }
 
-fn work(env: &Env) -> anyhow::Result<()> {
+fn work(env: &Env) -> anyhow::Result<String> {
     let client = credit::client(&env.token)?;
     let postings = credit::repository_threads(&client, &env.repo.0, &env.repo.1)?;
     let stats = postings.statistics();
 
-    println!("{:#?}", stats);
-
-    Ok(())
+    if env.json {
+        let json = serde_json::to_string(&stats)?;
+        Ok(json)
+    } else {
+        Ok(format!("{:#?}", stats))
+    }
 }
 
 fn split_repo(repo: &str) -> anyhow::Result<(String, String)> {
