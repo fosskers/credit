@@ -132,6 +132,8 @@ impl Postings {
             |t| t.first_contributor_response,
         );
 
+        let code_contributors = HashMap::new();
+
         let commentors = hashmap_combine(
             self.issues
                 .into_iter()
@@ -145,7 +147,7 @@ impl Postings {
 
         Statistics {
             commentors,
-            code_contributors: HashMap::new(),
+            code_contributors,
             all_issues,
             issues_with_responses,
             issues_with_official_responses,
@@ -188,6 +190,7 @@ impl Postings {
 }
 
 /// Statistics involving [`Thread`](struct.Thread.html) response times.
+#[derive(Debug)]
 pub struct ResponseTimes {
     pub median: Duration,
     pub mean: Duration,
@@ -201,6 +204,7 @@ pub struct ResponseTimes {
 ///
 /// A "contributor" response is any made by the above three types or a
 /// "Contributor" as marked by Github.
+#[derive(Debug)]
 pub struct Statistics {
     /// All issue/PR commentors.
     pub commentors: HashMap<String, u32>,

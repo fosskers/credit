@@ -46,10 +46,9 @@ fn work(env: &Env) -> Result<(), credit::error::Error> {
 
     let client = credit::client(&env.token)?;
     let postings = credit::repository_threads(&client, "fosskers", "versions")?;
+    let stats = postings.statistics();
 
-    println!("{:#?}", postings);
-    println!("There are {} issues.", postings.issues.len());
-    println!("There are {} PRs.", postings.prs.len());
+    println!("{:#?}", stats);
 
     Ok(())
 }
