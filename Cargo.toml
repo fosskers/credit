@@ -14,6 +14,7 @@ categories = ["command-line-utilities"]
 [dependencies]
 anyhow = "1.0"
 chrono = { version = "0.4", features = ["serde"] }
+counter = "0.5"
 gumdrop = "0.8"
 indicatif = { version = "0.15", features = ["rayon"] }
 isahc = { version = "0.9", features = ["json"] }

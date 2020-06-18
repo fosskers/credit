@@ -4,6 +4,7 @@ mod github;
 
 use anyhow::Context;
 use chrono::{DateTime, Utc};
+use counter::Counter;
 use indicatif::ParallelProgressIterator;
 use isahc::prelude::*;
 use itertools::Itertools;
@@ -134,7 +135,13 @@ impl Postings {
             |t| t.first_contributor_response,
         );
 
-        let code_contributors = HashMap::new();
+        let code_contributors = self
+            .prs
+            .iter()
+            .filter(|p| p.merged.is_some())
+            .map(|p| p.thread.author.clone()) // Naughty clone.
+            .collect::<Counter<_>>()
+            .into_map();
 
         let commentors = hashmap_combine(
             self.issues
@@ -218,7 +225,7 @@ pub struct Statistics {
     /// All issue/PR commentors.
     pub commentors: HashMap<String, u32>,
     /// All users who had PRs merged.
-    pub code_contributors: HashMap<String, u32>,
+    pub code_contributors: HashMap<String, usize>,
     /// The count of all issues, opened or closed.
     pub all_issues: usize,
     /// All issues that have been responded to in some way.
