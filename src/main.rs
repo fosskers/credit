@@ -1,5 +1,6 @@
 //! A tool for measuring repository contributions.
 
+use anyhow::anyhow;
 use gumdrop::{Options, ParsingStyle};
 
 //- ~credit~: Just pull as much as possible via the Github API.
@@ -27,8 +28,8 @@ struct Env {
     token: String,
 
     /// A Github repository to check
-    #[options(free)]
-    repos: Vec<String>,
+    #[options(free, parse(try_from_str = "split_repo"))]
+    repo: (String, String),
 
     /// Output as JSON
     json: bool,
@@ -37,19 +38,27 @@ struct Env {
 fn main() {
     let env = Env::parse_args_or_exit(ParsingStyle::AllOptions);
     match work(&env) {
-        Err(e) => eprintln!("Crap: {:?}", e),
+        Err(e) => eprintln!("{}", e),
         Ok(_) => (),
     }
 }
 
 fn work(env: &Env) -> anyhow::Result<()> {
-    println!("{:#?}", env);
-
     let client = credit::client(&env.token)?;
-    let postings = credit::repository_threads(&client, "kadena-io", "chainweb-node")?;
+    let postings = credit::repository_threads(&client, &env.repo.0, &env.repo.1)?;
     let stats = postings.statistics();
 
     println!("{:#?}", stats);
 
     Ok(())
+}
+
+fn split_repo(repo: &str) -> anyhow::Result<(String, String)> {
+    let mut split = repo.split('/');
+    let (owner, project) = split
+        .next()
+        .and_then(|owner| split.next().map(|project| (owner, project)))
+        .ok_or_else(|| anyhow!("{}", repo))?;
+
+    Ok((owner.to_string(), project.to_string()))
 }
