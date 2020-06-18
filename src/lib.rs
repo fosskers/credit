@@ -64,62 +64,102 @@ pub struct Postings {
 }
 
 impl Postings {
-    pub fn statistics(&self) -> Statistics {
+    /// Consumes the `Postings` to form all the statistics.
+    pub fn statistics(self) -> Statistics {
+        let all_issues = self.issues.len();
+
+        let issues_with_responses = self
+            .issues
+            .iter()
+            .filter_map(|i| i.0.first_response)
+            .count();
+
+        let issues_with_official_responses = self
+            .issues
+            .iter()
+            .filter_map(|i| i.0.first_official_response)
+            .count();
+
+        let issues_with_contributor_responses = self
+            .issues
+            .iter()
+            .filter_map(|i| i.0.first_contributor_response)
+            .count();
+
+        let issue_first_resp_time =
+            self.resp_times(|| self.issues.iter().map(|i| &i.0), |t| t.first_response);
+
+        let issue_official_first_resp_time = self.resp_times(
+            || self.issues.iter().map(|i| &i.0),
+            |t| t.first_official_response,
+        );
+
+        let issue_contributor_first_resp_time = self.resp_times(
+            || self.issues.iter().map(|i| &i.0),
+            |t| t.first_contributor_response,
+        );
+
+        let all_prs = self.prs.len();
+
+        let prs_with_responses = self
+            .prs
+            .iter()
+            .filter_map(|p| p.thread.first_response)
+            .count();
+
+        let prs_with_official_responses = self
+            .prs
+            .iter()
+            .filter_map(|p| p.thread.first_official_response)
+            .count();
+
+        let prs_with_contributor_responses = self
+            .prs
+            .iter()
+            .filter_map(|p| p.thread.first_contributor_response)
+            .count();
+
+        let pr_first_resp_time =
+            self.resp_times(|| self.prs.iter().map(|p| &p.thread), |t| t.first_response);
+
+        let pr_official_first_resp_time = self.resp_times(
+            || self.prs.iter().map(|p| &p.thread),
+            |t| t.first_official_response,
+        );
+
+        let pr_contributor_first_resp_time = self.resp_times(
+            || self.prs.iter().map(|p| &p.thread),
+            |t| t.first_contributor_response,
+        );
+
+        let commentors = hashmap_combine(
+            self.issues
+                .into_iter()
+                .map(|i| i.0.comments)
+                .fold(HashMap::new(), |acc, cs| hashmap_combine(acc, cs)),
+            self.prs
+                .into_iter()
+                .map(|p| p.thread.comments)
+                .fold(HashMap::new(), |acc, cs| hashmap_combine(acc, cs)),
+        );
+
         Statistics {
-            commentors: HashMap::new(),
+            commentors,
             code_contributors: HashMap::new(),
-            all_issues: self.issues.len(),
-            issues_with_responses: self
-                .issues
-                .iter()
-                .filter_map(|i| i.0.first_response)
-                .count(),
-            issues_with_official_responses: self
-                .issues
-                .iter()
-                .filter_map(|i| i.0.first_official_response)
-                .count(),
-            issues_with_contributor_responses: self
-                .issues
-                .iter()
-                .filter_map(|i| i.0.first_contributor_response)
-                .count(),
-            issue_first_resp_time: self
-                .resp_times(|| self.issues.iter().map(|i| &i.0), |t| t.first_response),
-            issue_official_first_resp_time: self.resp_times(
-                || self.issues.iter().map(|i| &i.0),
-                |t| t.first_official_response,
-            ),
-            issue_contributor_first_resp_time: self.resp_times(
-                || self.issues.iter().map(|i| &i.0),
-                |t| t.first_contributor_response,
-            ),
-            all_prs: self.prs.len(),
-            prs_with_responses: self
-                .prs
-                .iter()
-                .filter_map(|p| p.thread.first_response)
-                .count(),
-            prs_with_official_responses: self
-                .prs
-                .iter()
-                .filter_map(|p| p.thread.first_official_response)
-                .count(),
-            prs_with_contributor_responses: self
-                .prs
-                .iter()
-                .filter_map(|p| p.thread.first_contributor_response)
-                .count(),
-            pr_first_resp_time: self
-                .resp_times(|| self.prs.iter().map(|p| &p.thread), |t| t.first_response),
-            pr_official_first_resp_time: self.resp_times(
-                || self.prs.iter().map(|p| &p.thread),
-                |t| t.first_official_response,
-            ),
-            pr_contributor_first_resp_time: self.resp_times(
-                || self.prs.iter().map(|p| &p.thread),
-                |t| t.first_contributor_response,
-            ),
+            all_issues,
+            issues_with_responses,
+            issues_with_official_responses,
+            issues_with_contributor_responses,
+            issue_first_resp_time,
+            issue_official_first_resp_time,
+            issue_contributor_first_resp_time,
+            all_prs,
+            prs_with_responses,
+            prs_with_official_responses,
+            prs_with_contributor_responses,
+            pr_first_resp_time,
+            pr_official_first_resp_time,
+            pr_contributor_first_resp_time,
         }
     }
 
@@ -284,5 +324,34 @@ fn issue_thread(
     })
 }
 
+fn hashmap_combine<K, V>(mut a: HashMap<K, V>, b: HashMap<K, V>) -> HashMap<K, V>
+where
+    K: Eq + std::hash::Hash,
+    V: std::ops::AddAssign + Copy,
+{
+    for (k, v) in b {
+        a.entry(k).and_modify(|e| *e += v).or_insert(v);
+    }
+
+    a
+}
+
 // Pagination notes: https://developer.github.com/v3/#pagination
 // - Can ask for 100 items per page.
+
+#[test]
+fn hashmap_extend() {
+    let mut first = HashMap::new();
+    let mut second = HashMap::new();
+    let message = "ABCDEF";
+
+    for c in message.chars() {
+        first.insert(c, 1);
+        second.insert(c, 1);
+    }
+
+    let third = hashmap_combine(first, second);
+    let elems: Vec<usize> = third.values().map(|v| *v).collect();
+
+    assert_eq!(vec![2, 2, 2, 2, 2, 2], elems);
+}
