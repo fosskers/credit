@@ -1,6 +1,7 @@
 //! Github API types in reduced forms. Only the fields that are useful to
 //! `credit` are exposed.
 
+use anyhow::Context;
 use chrono::{DateTime, Utc};
 use isahc::prelude::*;
 use serde::Deserialize;
@@ -90,8 +91,10 @@ pub fn all_issues(client: &HttpClient, owner: &str, repo: &str) -> anyhow::Resul
     );
 
     let issues = client
-        .get(url)?
-        .json::<Vec<Issue>>()?
+        .get(url)
+        .context("There was a problem fetching Issue data.")?
+        .json::<Vec<Issue>>()
+        .context("The issue response couldn't be decoded into JSON.")?
         .into_iter()
         .filter(|i| i.pull_request.is_none())
         .collect();
@@ -111,7 +114,11 @@ pub fn issue_comments(
         owner, repo, issue
     );
 
-    let comments = client.get(url)?.json()?;
+    let comments = client
+        .get(url)
+        .context("There was a problem fetching comments.")?
+        .json()
+        .context("The comments couldn't be decoded into JSON.")?;
 
     Ok(comments)
 }
@@ -123,7 +130,11 @@ pub fn all_prs(client: &HttpClient, owner: &str, repo: &str) -> anyhow::Result<V
         owner, repo
     );
 
-    let prs = client.get(url)?.json()?;
+    let prs = client
+        .get(url)
+        .context("There was a problem fetching PR data.")?
+        .json()
+        .context("The PR response couldn't be decoded into JSON.")?;
 
     Ok(prs)
 }

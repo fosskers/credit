@@ -2,6 +2,7 @@
 
 mod github;
 
+use anyhow::Context;
 use chrono::{DateTime, Duration, Utc};
 use isahc::prelude::*;
 use itertools::Itertools;
@@ -244,7 +245,8 @@ pub fn client(token: &str) -> anyhow::Result<HttpClient> {
     let client = HttpClient::builder()
         .default_header("Accept", "application/vnd.github.v3+json")
         .default_header("Authorization", format!("token {}", token))
-        .build()?;
+        .build()
+        .context("Failed to create initial HTTP client.")?;
 
     Ok(client)
 }
