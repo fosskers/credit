@@ -15,6 +15,7 @@ categories = ["command-line-utilities"]
 anyhow = "1.0"
 chrono = { version = "0.4", features = ["serde"] }
 gumdrop = "0.8"
+indicatif = { version = "0.15", features = ["rayon"] }
 isahc = { version = "0.9", features = ["json"] }
 itertools = "0.9"
 parse_link_header = "0.2"

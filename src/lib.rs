@@ -4,6 +4,7 @@ mod github;
 
 use anyhow::Context;
 use chrono::{DateTime, Utc};
+use indicatif::ParallelProgressIterator;
 use isahc::prelude::*;
 use itertools::Itertools;
 use rayon::prelude::*;
@@ -260,7 +261,6 @@ pub fn client(token: &str) -> anyhow::Result<HttpClient> {
     Ok(client)
 }
 
-// TODO Use a progress bar here.
 /// Given a repository name, look up the [`Thread`](struct.Thread.html)
 /// statistics of all its Issues.
 pub fn repository_threads(
@@ -268,8 +268,12 @@ pub fn repository_threads(
     owner: &str,
     repo: &str,
 ) -> anyhow::Result<Postings> {
-    let issues = github::all_issues(client, owner, repo)?
+    println!("Fetching Issues...");
+    let raw_issues = github::all_issues(client, owner, repo)?;
+    println!("Fetching Issue comments...");
+    let issues = raw_issues
         .par_iter()
+        .progress_count(raw_issues.len() as u64)
         // TODO Handle errors better!
         .filter_map(|i| match issue_thread(client, owner, repo, i) {
             Ok(t) => Some(Issue(t)),
@@ -280,8 +284,12 @@ pub fn repository_threads(
         })
         .collect();
 
-    let prs = github::all_prs(client, owner, repo)?
+    println!("Fetching PRs...");
+    let raw_prs = github::all_prs(client, owner, repo)?;
+    println!("Fetching PR comments...");
+    let prs = raw_prs
         .par_iter()
+        .progress_count(raw_prs.len() as u64)
         // TODO Handle errors better!
         .filter_map(|i| match issue_thread(client, owner, repo, i) {
             Ok(t) => Some(PR {
