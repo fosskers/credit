@@ -85,21 +85,45 @@ pub struct Comment {
 /// > GitHub's REST API v3 considers every pull request an issue, but not every
 /// > issue is a pull request.
 pub fn all_issues(client: &HttpClient, owner: &str, repo: &str) -> anyhow::Result<Vec<Issue>> {
+    all_issues_paged(client, owner, repo, 1)
+}
+
+pub fn all_issues_paged(
+    client: &HttpClient,
+    owner: &str,
+    repo: &str,
+    page: u32,
+) -> anyhow::Result<Vec<Issue>> {
     let url = format!(
-        "https://api.github.com/repos/{}/{}/issues?state=all",
-        owner, repo
+        "https://api.github.com/repos/{}/{}/issues?state=all&page={}&per_page=100",
+        owner, repo, page
     );
 
-    let issues = client
+    let mut resp = client
         .get(url)
-        .context("There was a problem fetching Issue data.")?
+        .context("There was a problem fetching Issue data.")?;
+
+    let mut issues = resp
         .json::<Vec<Issue>>()
         .context("The issue response couldn't be decoded into JSON.")?
         .into_iter()
         .filter(|i| i.pull_request.is_none())
         .collect();
 
-    Ok(issues)
+    match resp
+        .headers()
+        .get("link")
+        .and_then(|l| l.to_str().ok())
+        .and_then(|l| parse_link_header::parse(l).ok())
+        .and_then(|mut link_map| link_map.remove(&Some("next".to_string())))
+    {
+        None => Ok(issues),
+        Some(_) => {
+            let mut next = all_issues_paged(client, owner, repo, page + 1)?;
+            issues.append(&mut next);
+            Ok(issues)
+        }
+    }
 }
 
 /// All comments from a particular issue, in ascending order of posting date.
@@ -110,7 +134,7 @@ pub fn issue_comments(
     issue: u32,
 ) -> anyhow::Result<Vec<Comment>> {
     let url = format!(
-        "https://api.github.com/repos/{}/{}/issues/{}/comments",
+        "https://api.github.com/repos/{}/{}/issues/{}/comments?per_page=100",
         owner, repo, issue
     );
 
@@ -126,7 +150,7 @@ pub fn issue_comments(
 /// All Pull Requests belonging to a repository, regardless of status.
 pub fn all_prs(client: &HttpClient, owner: &str, repo: &str) -> anyhow::Result<Vec<Issue>> {
     let url = format!(
-        "https://api.github.com/repos/{}/{}/pulls?state=all",
+        "https://api.github.com/repos/{}/{}/pulls?state=all&per_page=100",
         owner, repo
     );
 

@@ -353,9 +353,6 @@ where
     a
 }
 
-// Pagination notes: https://developer.github.com/v3/#pagination
-// - Can ask for 100 items per page.
-
 #[test]
 fn hashmap_extend() {
     let mut first = HashMap::new();
