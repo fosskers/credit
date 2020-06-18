@@ -4,6 +4,7 @@
 use anyhow::Context;
 use chrono::{DateTime, Utc};
 use isahc::prelude::*;
+use serde::de::DeserializeOwned;
 use serde::Deserialize;
 
 /// Some Github account.
@@ -85,30 +86,36 @@ pub struct Comment {
 /// > GitHub's REST API v3 considers every pull request an issue, but not every
 /// > issue is a pull request.
 pub fn all_issues(client: &HttpClient, owner: &str, repo: &str) -> anyhow::Result<Vec<Issue>> {
-    all_issues_paged(client, owner, repo, 1)
-}
-
-pub fn all_issues_paged(
-    client: &HttpClient,
-    owner: &str,
-    repo: &str,
-    page: u32,
-) -> anyhow::Result<Vec<Issue>> {
     let url = format!(
-        "https://api.github.com/repos/{}/{}/issues?state=all&page={}&per_page=100",
-        owner, repo, page
+        "https://api.github.com/repos/{}/{}/issues?state=all&per_page=100",
+        owner, repo,
     );
 
-    let mut resp = client
-        .get(url)
-        .context("There was a problem fetching Issue data.")?;
+    let issues: Vec<Issue> = paged_lookups(client, &url)?;
 
-    let mut issues = resp
-        .json::<Vec<Issue>>()
-        .context("The issue response couldn't be decoded into JSON.")?
+    Ok(issues
         .into_iter()
         .filter(|i| i.pull_request.is_none())
-        .collect();
+        .collect())
+}
+
+// TODO Could use `rayon` here to parallelize over all the queries that are
+// known to be necessary. If the first ever response had a `link` header, it'll
+// also include the `last` ref. From that we could just do them all at the same
+// time with "guessed" URLs (although Github says not to guess.)
+/// Query the Github API continually until the `link` header claims there aren't
+/// any further pages.
+fn paged_lookups<A>(client: &HttpClient, url: &str) -> anyhow::Result<Vec<A>>
+where
+    A: DeserializeOwned,
+{
+    let mut resp = client
+        .get(url)
+        .context("There was a problem calling the Github API.")?;
+
+    let mut results = resp
+        .json::<Vec<A>>()
+        .context("The responses couldn't be decoded into JSON.")?;
 
     match resp
         .headers()
@@ -117,11 +124,11 @@ pub fn all_issues_paged(
         .and_then(|l| parse_link_header::parse(l).ok())
         .and_then(|mut link_map| link_map.remove(&Some("next".to_string())))
     {
-        None => Ok(issues),
-        Some(_) => {
-            let mut next = all_issues_paged(client, owner, repo, page + 1)?;
-            issues.append(&mut next);
-            Ok(issues)
+        None => Ok(results),
+        Some(link) => {
+            let mut next = paged_lookups(client, &link.raw_uri)?;
+            results.append(&mut next);
+            Ok(results)
         }
     }
 }
@@ -138,13 +145,7 @@ pub fn issue_comments(
         owner, repo, issue
     );
 
-    let comments = client
-        .get(url)
-        .context("There was a problem fetching comments.")?
-        .json()
-        .context("The comments couldn't be decoded into JSON.")?;
-
-    Ok(comments)
+    paged_lookups(client, &url)
 }
 
 /// All Pull Requests belonging to a repository, regardless of status.
@@ -154,11 +155,5 @@ pub fn all_prs(client: &HttpClient, owner: &str, repo: &str) -> anyhow::Result<V
         owner, repo
     );
 
-    let prs = client
-        .get(url)
-        .context("There was a problem fetching PR data.")?
-        .json()
-        .context("The PR response couldn't be decoded into JSON.")?;
-
-    Ok(prs)
+    paged_lookups(client, &url)
 }
