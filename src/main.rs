@@ -1,6 +1,6 @@
 //! A tool for measuring repository contributions.
 
-use structopt::StructOpt;
+use gumdrop::{Options, ParsingStyle};
 
 //- ~credit~: Just pull as much as possible via the Github API.
 //- Who comments the most?
@@ -17,24 +17,25 @@ use structopt::StructOpt;
 
 // Number of commits on `master` isn't counted - you can see that on Github :)
 
-#[derive(Debug, StructOpt)]
-#[structopt(about = "A tool for measuring repository contributions")]
+/// A tool for measuring repository contributions.
+#[derive(Debug, Options)]
 struct Env {
+    /// Print this help text
+    help: bool,
+
     /// Github personal access token
-    #[structopt(long)]
     token: String,
 
     /// A Github repository to check
-    #[structopt(name = "REPO")]
+    #[options(free)]
     repos: Vec<String>,
 
     /// Output as JSON
-    #[structopt(short, long)]
     json: bool,
 }
 
 fn main() {
-    let env = Env::from_args();
+    let env = Env::parse_args_or_exit(ParsingStyle::AllOptions);
     match work(&env) {
         Err(e) => eprintln!("Crap: {:?}", e),
         Ok(_) => (),
