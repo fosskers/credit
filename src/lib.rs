@@ -274,14 +274,8 @@ pub fn repository_threads(
     let issues = raw_issues
         .par_iter()
         .progress_count(raw_issues.len() as u64)
-        // TODO Handle errors better!
-        .filter_map(|i| match issue_thread(client, owner, repo, i) {
-            Ok(t) => Some(Issue(t)),
-            Err(e) => {
-                eprintln!("ISSUE PROBLEM: {:?}", e);
-                None
-            }
-        })
+        // Silently discards errors.
+        .filter_map(|i| issue_thread(client, owner, repo, i).ok().map(Issue))
         .collect();
 
     println!("Fetching PRs...");
@@ -290,16 +284,12 @@ pub fn repository_threads(
     let prs = raw_prs
         .par_iter()
         .progress_count(raw_prs.len() as u64)
-        // TODO Handle errors better!
-        .filter_map(|i| match issue_thread(client, owner, repo, i) {
-            Ok(t) => Some(PR {
+        // Sliently discards errors.
+        .filter_map(|i| {
+            issue_thread(client, owner, repo, i).ok().map(|t| PR {
                 thread: t,
                 merged: i.merged_at,
-            }),
-            Err(e) => {
-                eprintln!("PR PROBLEM: {:?}", e);
-                None
-            }
+            })
         })
         .collect();
 
