@@ -121,6 +121,8 @@ tools like [`jq`](https://github.com/stedolan/jq) or manipulated as you wish:
 
 ## Caveats
 
+### Accuracy
+
 The numbers given by `credit` are not perfect measures of developer productivity
 nor maintainer responsiveness. Please use its results in good faith.
 
@@ -128,3 +130,16 @@ Without human eyes to judge a code contribution, its importance can be difficult
 to measure. Some PRs are long, but do little. Some PRs are only a single commit,
 but save the company. `credit` takes the stance that, over time, with a large
 enough sample size, general trends of "who's doing the work" will emerge.
+
+### Median vs Mean
+
+You may notice that sometimes the reported `Median` and `Average` results can be
+wildly different. Given the presence of outliers in a data set, it can sometimes
+be more accurate to consider the Median and not the Mean.
+
+In the case of maintainer response times, consider a developer who usually
+responds to all new Issues within 10 minutes. Then he goes on vacation, and
+misses a few until his return 2 weeks later. His Average would be skewed in this
+case, but the Median would remain accurate.
+
+`credit` doesn't attempt to remove outliers, but might in the future.
