@@ -398,15 +398,15 @@ Top 10 Code Contributors (by merged PRs):
         );
 
         format!(
-            r#"Report for {}
+            r#"# Credit Report for {}
 
-# --- ISSUES --- #
+## Issues
 {}
 
-# --- PULL REQUESTS --- #
+## Pull Requests
 {}
 
-# --- CONTRIBUTORS --- #
+## Contributors
 {}
 "#,
             repo, issues, prs, contributors
