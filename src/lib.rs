@@ -13,9 +13,20 @@ use serde::Serialize;
 use std::collections::HashMap;
 use std::time::Duration;
 
+/// Any type that contains a `Thread`.
+trait Threaded {
+    fn the_thread(&self) -> &Thread;
+}
+
 /// A Github Issue.
 #[derive(Debug)]
 pub struct Issue(Thread);
+
+impl Threaded for Issue {
+    fn the_thread(&self) -> &Thread {
+        &self.0
+    }
+}
 
 /// A Github Pull Request.
 #[derive(Debug)]
@@ -33,6 +44,12 @@ impl PR {
     /// Was this Pull Request closed without merging?
     pub fn is_closed_not_merged(&self) -> bool {
         self.thread.closed.is_some() && !self.is_merged()
+    }
+}
+
+impl Threaded for PR {
+    fn the_thread(&self) -> &Thread {
+        &self.thread
     }
 }
 
@@ -89,18 +106,13 @@ impl Postings {
             .filter_map(|i| i.0.first_contributor_response)
             .count();
 
-        let issue_first_resp_time =
-            self.resp_times(|| self.issues.iter().map(|i| &i.0), |t| t.first_response);
+        let issue_first_resp_time = self.resp_times(|| self.issues.iter(), |i| i.0.first_response);
 
-        let issue_official_first_resp_time = self.resp_times(
-            || self.issues.iter().map(|i| &i.0),
-            |t| t.first_official_response,
-        );
+        let issue_official_first_resp_time =
+            self.resp_times(|| self.issues.iter(), |i| i.0.first_official_response);
 
-        let issue_contributor_first_resp_time = self.resp_times(
-            || self.issues.iter().map(|i| &i.0),
-            |t| t.first_contributor_response,
-        );
+        let issue_contributor_first_resp_time =
+            self.resp_times(|| self.issues.iter(), |i| i.0.first_contributor_response);
 
         let all_prs = self.prs.len();
 
@@ -122,18 +134,13 @@ impl Postings {
             .filter_map(|p| p.thread.first_contributor_response)
             .count();
 
-        let pr_first_resp_time =
-            self.resp_times(|| self.prs.iter().map(|p| &p.thread), |t| t.first_response);
+        let pr_first_resp_time = self.resp_times(|| self.prs.iter(), |p| p.thread.first_response);
 
-        let pr_official_first_resp_time = self.resp_times(
-            || self.prs.iter().map(|p| &p.thread),
-            |t| t.first_official_response,
-        );
+        let pr_official_first_resp_time =
+            self.resp_times(|| self.prs.iter(), |p| p.thread.first_official_response);
 
-        let pr_contributor_first_resp_time = self.resp_times(
-            || self.prs.iter().map(|p| &p.thread),
-            |t| t.first_contributor_response,
-        );
+        let pr_contributor_first_resp_time =
+            self.resp_times(|| self.prs.iter(), |p| p.thread.first_contributor_response);
 
         let prs_closed_without_merging = self
             .prs
@@ -142,9 +149,7 @@ impl Postings {
             .filter(|p| p.thread.closed.is_some())
             .count();
 
-        // let pr_merge_time = self.resp_times(
-        //     || self.prs.iter().map
-        // );
+        let pr_merge_time = self.resp_times(|| self.prs.iter(), |p| p.merged);
 
         let code_contributors = self
             .prs
@@ -183,18 +188,20 @@ impl Postings {
             pr_first_resp_time,
             pr_official_first_resp_time,
             pr_contributor_first_resp_time,
+            pr_merge_time,
         }
     }
 
     /// Gather the mean/median response times in a generic way.
-    fn resp_times<'a, F, G, T>(&self, f: F, g: G) -> Option<ResponseTimes>
+    fn resp_times<'a, F, G, T, A>(&self, f: F, g: G) -> Option<ResponseTimes>
     where
         F: FnOnce() -> T,
-        G: Fn(&Thread) -> Option<DateTime<Utc>>,
-        T: Iterator<Item = &'a Thread>,
+        G: Fn(&A) -> Option<DateTime<Utc>>,
+        T: Iterator<Item = &'a A>,
+        A: 'a + Threaded,
     {
         let resp_times: Vec<chrono::Duration> = f()
-            .filter_map(|t| g(t).map(|r| r - t.posted))
+            .filter_map(|t| g(t).map(|r| r - t.the_thread().posted))
             .sorted()
             .collect();
 
@@ -269,8 +276,8 @@ pub struct Statistics {
     pub pr_contributor_first_resp_time: Option<ResponseTimes>,
     /// The count of all PRs which were closed with being merged.
     pub prs_closed_without_merging: usize,
-    // /// How long does it take for PRs to be merged?
-    // pub pr_merge_time: Option<ResponseTimes>,
+    /// How long does it take for PRs to be merged?
+    pub pr_merge_time: Option<ResponseTimes>,
 }
 
 /// Generate a client with preset headers for communicating with the Github API.
