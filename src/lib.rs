@@ -163,11 +163,11 @@ impl Postings {
             self.issues
                 .into_iter()
                 .map(|i| i.0.comments)
-                .fold(HashMap::new(), |acc, cs| hashmap_combine(acc, cs)),
+                .fold(HashMap::new(), hashmap_combine),
             self.prs
                 .into_iter()
                 .map(|p| p.thread.comments)
-                .fold(HashMap::new(), |acc, cs| hashmap_combine(acc, cs)),
+                .fold(HashMap::new(), hashmap_combine),
         );
 
         Statistics {
