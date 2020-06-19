@@ -70,8 +70,6 @@ pub struct Thread {
     pub first_response: Option<DateTime<Utc>>,
     /// When, if ever, was there an "official" response?
     pub first_official_response: Option<DateTime<Utc>>,
-    /// When, if ever, did an owner/member/collaborator/contributor first respond?
-    pub first_contributor_response: Option<DateTime<Utc>>,
     /// Comment counts of everyone who participated.
     pub comments: HashMap<String, usize>,
 }
@@ -102,19 +100,10 @@ impl Postings {
             .filter_map(|i| i.0.first_official_response)
             .count();
 
-        let issues_with_contributor_responses = self
-            .issues
-            .iter()
-            .filter_map(|i| i.0.first_contributor_response)
-            .count();
-
         let issue_first_resp_time = self.resp_times(|| self.issues.iter(), |i| i.0.first_response);
 
         let issue_official_first_resp_time =
             self.resp_times(|| self.issues.iter(), |i| i.0.first_official_response);
-
-        let issue_contributor_first_resp_time =
-            self.resp_times(|| self.issues.iter(), |i| i.0.first_contributor_response);
 
         let all_prs = self.prs.len();
 
@@ -130,19 +119,10 @@ impl Postings {
             .filter_map(|p| p.thread.first_official_response)
             .count();
 
-        let prs_with_contributor_responses = self
-            .prs
-            .iter()
-            .filter_map(|p| p.thread.first_contributor_response)
-            .count();
-
         let pr_first_resp_time = self.resp_times(|| self.prs.iter(), |p| p.thread.first_response);
 
         let pr_official_first_resp_time =
             self.resp_times(|| self.prs.iter(), |p| p.thread.first_official_response);
-
-        let pr_contributor_first_resp_time =
-            self.resp_times(|| self.prs.iter(), |p| p.thread.first_contributor_response);
 
         let prs_closed_without_merging = self
             .prs
@@ -179,18 +159,14 @@ impl Postings {
             all_closed_issues,
             issues_with_responses,
             issues_with_official_responses,
-            issues_with_contributor_responses,
             issue_first_resp_time,
             issue_official_first_resp_time,
-            issue_contributor_first_resp_time,
             all_prs,
             prs_closed_without_merging,
             prs_with_responses,
             prs_with_official_responses,
-            prs_with_contributor_responses,
             pr_first_resp_time,
             pr_official_first_resp_time,
-            pr_contributor_first_resp_time,
             pr_merge_time,
         }
     }
@@ -265,9 +241,6 @@ impl ResponseTimes {
 ///
 /// For the relevant fields below, an "official" response is any made by a
 /// repository Owner, an organization Member, or an invited Collaborator.
-///
-/// A "contributor" response is any made by the above three types or a
-/// "Contributor" as marked by Github.
 #[derive(Debug, Serialize)]
 pub struct Statistics {
     /// All issue/PR commentors.
@@ -282,29 +255,20 @@ pub struct Statistics {
     pub issues_with_responses: usize,
     /// All issues that have been responded to "officially".
     pub issues_with_official_responses: usize,
-    /// All issues that have been responded to by any contributor.
-    pub issues_with_contributor_responses: usize,
     /// How long does it take for someone to respond to an issue?
     pub issue_first_resp_time: Option<ResponseTimes>,
     /// How long does it take for an "official" response?
     pub issue_official_first_resp_time: Option<ResponseTimes>,
-    /// How long does it take for any contributor to respond to an
-    /// issue?
-    pub issue_contributor_first_resp_time: Option<ResponseTimes>,
     /// The count of all PRs, opened or closed.
     pub all_prs: usize,
     /// All PRs that have been responded to in some way.
     pub prs_with_responses: usize,
     /// All PRs that have been responded to officially.
     pub prs_with_official_responses: usize,
-    /// All PRs that have been responded to by any contributor.
-    pub prs_with_contributor_responses: usize,
     /// How long does it take for someone to respond to a PR?
     pub pr_first_resp_time: Option<ResponseTimes>,
     /// How long does it take for an "official" response to a PR?
     pub pr_official_first_resp_time: Option<ResponseTimes>,
-    /// How long does it take for any contributor to respond to a PR?
-    pub pr_contributor_first_resp_time: Option<ResponseTimes>,
     /// The count of all PRs which were closed with being merged.
     pub prs_closed_without_merging: usize,
     /// How long does it take for PRs to be merged?
@@ -333,7 +297,6 @@ This repo has had {} issues, {} of which are now closed ({:.1}%).
 
 - {} ({:.1}%) of these received a response.
 - {} ({:.1}%) had an official response from a repo Owner or organization Member.
-- {} ({:.1}%) had a response from any other previous Contributor.
 
 Response Times (any):
 - Median: {}
@@ -350,8 +313,6 @@ Response Times (official):
                 percent(self.issues_with_responses, self.all_issues),
                 self.issues_with_official_responses,
                 percent(self.issues_with_official_responses, self.all_issues),
-                self.issues_with_contributor_responses,
-                percent(self.issues_with_contributor_responses, self.all_issues),
                 any_median,
                 any_mean,
                 official_median,
@@ -440,11 +401,6 @@ fn issue_thread(
         .find(|c| c.author_association.is_official())
         .map(|c| c.created_at);
 
-    let first_contributor_response = comments
-        .iter()
-        .find(|c| c.author_association.is_contributor())
-        .map(|c| c.created_at);
-
     let mut comment_counts = HashMap::new();
     for c in comments {
         let counter = comment_counts.entry(c.user.login).or_insert(0);
@@ -458,7 +414,6 @@ fn issue_thread(
         first_responder,
         first_response,
         first_official_response,
-        first_contributor_response,
         comments: comment_counts,
     })
 }
