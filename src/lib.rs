@@ -124,12 +124,10 @@ impl Postings {
         let pr_official_first_resp_time =
             self.resp_times(|| self.prs.iter(), |p| p.thread.first_official_response);
 
-        let prs_closed_without_merging = self
-            .prs
-            .iter()
-            .filter(|p| p.merged.is_none())
-            .filter(|p| p.thread.closed.is_some())
-            .count();
+        let prs_merged = self.prs.iter().filter(|p| p.is_merged()).count();
+
+        let prs_closed_without_merging =
+            self.prs.iter().filter(|p| p.is_closed_not_merged()).count();
 
         let pr_merge_time = self.resp_times(|| self.prs.iter(), |p| p.merged);
 
@@ -162,6 +160,7 @@ impl Postings {
             issue_first_resp_time,
             issue_official_first_resp_time,
             all_prs,
+            prs_merged,
             prs_closed_without_merging,
             prs_with_responses,
             prs_with_official_responses,
@@ -193,11 +192,9 @@ impl Postings {
             let median = resp_times
                 .get(resp_times.len() / 2)
                 .and_then(|t| t.to_std().ok())?;
-            let mean = resp_times
-                .iter()
-                .fold(chrono::Duration::seconds(0), |acc, x| acc + *x)
-                .to_std()
-                .ok()?;
+            let mean: i64 = resp_times.iter().map(|d| d.num_seconds()).sum();
+            let mean = Duration::from_secs(mean as u64 / resp_times.len() as u64);
+
             Some(ResponseTimes { median, mean })
         }
     }
@@ -226,12 +223,12 @@ impl ResponseTimes {
         let hours = duration.as_secs() / 3600;
         let (num, period) = if hours > 48 {
             (hours / 24, "days")
-        } else if hours > 24 {
-            (1, "day")
         } else if hours > 1 {
             (hours, "hours")
-        } else {
+        } else if hours == 1 {
             (1, "hour")
+        } else {
+            (duration.as_secs() / 60, "minutes")
         };
         format!("{} {}", num, period)
     }
@@ -269,6 +266,8 @@ pub struct Statistics {
     pub pr_first_resp_time: Option<ResponseTimes>,
     /// How long does it take for an "official" response to a PR?
     pub pr_official_first_resp_time: Option<ResponseTimes>,
+    /// How many PRs were merged?
+    pub prs_merged: usize,
     /// The count of all PRs which were closed with being merged.
     pub prs_closed_without_merging: usize,
     /// How long does it take for PRs to be merged?
@@ -304,8 +303,7 @@ Response Times (any):
 
 Response Times (official):
 - Median: {}
-- Average: {}
-"#,
+- Average: {}"#,
                 self.all_issues,
                 self.all_closed_issues,
                 percent(self.all_closed_issues, self.all_issues),
@@ -320,6 +318,50 @@ Response Times (official):
             )
         };
 
+        let prs = if self.all_prs == 0 {
+            "This repo has had no Pull Requests.".to_string()
+        } else {
+            let (any_median, any_mean) = self
+                .pr_first_resp_time
+                .map(|rt| (rt.median_time(), rt.average_time()))
+                .unwrap_or_else(|| ("None".to_string(), "None".to_string()));
+
+            let (official_median, official_mean) = self
+                .pr_official_first_resp_time
+                .map(|rt| (rt.median_time(), rt.average_time()))
+                .unwrap_or_else(|| ("None".to_string(), "None".to_string()));
+
+            format!(
+                r#"
+This repo has had {} Pull Requests, {} of which are now merged ({:.1}%).
+{} have been closed without merging ({:.1}%).
+
+- {} ({:.1}%) of these received a response.
+- {} ({:.1}%) had an official response from a repo Owner or organization Member.
+
+Response Times (any):
+- Median: {}
+- Average: {}
+
+Response Times (official):
+- Median: {}
+- Average: {}"#,
+                self.all_prs,
+                self.prs_merged,
+                percent(self.prs_merged, self.all_prs),
+                self.prs_closed_without_merging,
+                percent(self.prs_closed_without_merging, self.all_prs),
+                self.prs_with_responses,
+                percent(self.prs_with_responses, self.all_prs),
+                self.prs_with_official_responses,
+                percent(self.prs_with_official_responses, self.all_prs),
+                any_median,
+                any_mean,
+                official_median,
+                official_mean,
+            )
+        };
+
         format!(
             r#"Report for {}
 
@@ -327,10 +369,11 @@ Response Times (official):
 {}
 
 # --- PULL REQUESTS --- #
+{}
 
 # --- CONTRIBUTORS --- #
 "#,
-            repo, issues
+            repo, issues, prs
         )
     }
 }

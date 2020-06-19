@@ -53,16 +53,6 @@ impl Association {
         }
     }
 
-    pub fn is_contributor(&self) -> bool {
-        match self {
-            Association::Owner => true,
-            Association::Member => true,
-            Association::Collaborator => true,
-            Association::Contributor => true,
-            _ => false,
-        }
-    }
-
     pub fn is_author(&self) -> bool {
         match self {
             Association::Author => true,
