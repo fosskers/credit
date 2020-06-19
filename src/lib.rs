@@ -86,7 +86,7 @@ impl Postings {
     pub fn statistics(self) -> Statistics {
         let all_issues = self.issues.len();
 
-        let all_closed_issues = self.issues.iter().map(|i| i.0.closed.is_some()).count();
+        let all_closed_issues = self.issues.iter().filter(|i| i.0.closed.is_some()).count();
 
         let issues_with_responses = self
             .issues
@@ -295,7 +295,7 @@ impl Statistics {
 This repo has had {} issues, {} of which are now closed ({:.1}%).
 
 - {} ({:.1}%) of these received a response.
-- {} ({:.1}%) had an official response from a repo Owner or organization Member.
+- {} ({:.1}%) have an official response from a repo Owner or organization Member.
 
 Response Times (any):
 - Median: {}
@@ -331,19 +331,28 @@ Response Times (official):
                 .map(|rt| (rt.median_time(), rt.average_time()))
                 .unwrap_or_else(|| ("None".to_string(), "None".to_string()));
 
+            let (merge_median, merge_mean) = self
+                .pr_merge_time
+                .map(|rt| (rt.median_time(), rt.average_time()))
+                .unwrap_or_else(|| ("None".to_string(), "None".to_string()));
+
             format!(
                 r#"
 This repo has had {} Pull Requests, {} of which are now merged ({:.1}%).
 {} have been closed without merging ({:.1}%).
 
 - {} ({:.1}%) of these received a response.
-- {} ({:.1}%) had an official response from a repo Owner or organization Member.
+- {} ({:.1}%) have an official response from a repo Owner or organization Member.
 
 Response Times (any):
 - Median: {}
 - Average: {}
 
 Response Times (official):
+- Median: {}
+- Average: {}
+
+Time-to-Merge:
 - Median: {}
 - Average: {}"#,
                 self.all_prs,
@@ -359,8 +368,34 @@ Response Times (official):
                 any_mean,
                 official_median,
                 official_mean,
+                merge_median,
+                merge_mean,
             )
         };
+
+        let contributors = format!(
+            r#"
+Top 10 Commentors (Issues and PRs):
+{}
+
+Top 10 Code Contributors (by merged PRs):
+{}
+"#,
+            self.commentors
+                .into_iter()
+                .sorted_by(|a, b| b.1.cmp(&a.1))
+                .take(10)
+                .enumerate()
+                .map(|(i, (name, prs))| format!("{}. {}: {}", i + 1, name, prs))
+                .join("\n"),
+            self.code_contributors
+                .into_iter()
+                .sorted_by(|a, b| b.1.cmp(&a.1))
+                .take(10)
+                .enumerate()
+                .map(|(i, (name, prs))| format!("{}. {}: {}", i + 1, name, prs))
+                .join("\n"),
+        );
 
         format!(
             r#"Report for {}
@@ -372,8 +407,9 @@ Response Times (official):
 {}
 
 # --- CONTRIBUTORS --- #
+{}
 "#,
-            repo, issues, prs
+            repo, issues, prs, contributors
         )
     }
 }
