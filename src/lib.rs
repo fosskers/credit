@@ -398,7 +398,7 @@ Top 10 Code Contributors (by merged PRs):
         );
 
         format!(
-            r#"# Credit Report for {}
+            r#"# Project Report for {}
 
 ## Issues
 {}
@@ -407,8 +407,7 @@ Top 10 Code Contributors (by merged PRs):
 {}
 
 ## Contributors
-{}
-"#,
+{}"#,
             repo, issues, prs, contributors
         )
     }
