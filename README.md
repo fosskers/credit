@@ -126,10 +126,15 @@ tools like [`jq`](https://github.com/stedolan/jq) or manipulated as you wish:
 The numbers given by `credit` are not perfect measures of developer productivity
 nor maintainer responsiveness. Please use its results in good faith.
 
-Without human eyes to judge a code contribution, its importance can be difficult
-to measure. Some PRs are long, but do little. Some PRs are only a single commit,
-but save the company. `credit` takes the stance that, over time, with a large
-enough sample size, general trends of "who's doing the work" will emerge.
+**Response Times:** Particularly in the Open Source world, volunteer developers
+are under no obligation to respond in a time frame that is most convenient for
+us the users.
+
+**Merged PRs:** Without human eyes to judge a code contribution, its importance
+can be difficult to measure. Some PRs are long, but do little. Some PRs are only
+a single commit, but save the company. `credit` takes the stance that, over
+time, with a large enough sample size, general trends of "who's doing the work"
+will emerge.
 
 ### Median vs Mean
 
