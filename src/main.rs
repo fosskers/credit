@@ -56,7 +56,7 @@ fn work(env: &Env) -> anyhow::Result<String> {
         let json = serde_json::to_string(&stats)?;
         Ok(json)
     } else {
-        Ok(format!("{:#?}", stats))
+        Ok(stats.report(&env.repo.1))
     }
 }
 

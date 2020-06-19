@@ -88,6 +88,8 @@ impl Postings {
     pub fn statistics(self) -> Statistics {
         let all_issues = self.issues.len();
 
+        let all_closed_issues = self.issues.iter().map(|i| i.0.closed.is_some()).count();
+
         let issues_with_responses = self
             .issues
             .iter()
@@ -174,6 +176,7 @@ impl Postings {
             commentors,
             code_contributors,
             all_issues,
+            all_closed_issues,
             issues_with_responses,
             issues_with_official_responses,
             issues_with_contributor_responses,
@@ -232,6 +235,32 @@ pub struct ResponseTimes {
     // pub std_deviation: f64,
 }
 
+impl ResponseTimes {
+    /// A human-friendly report of the median reponse time.
+    pub fn median_time(&self) -> String {
+        ResponseTimes::period(&self.median)
+    }
+
+    /// A human-friendly report of the average reponse time.
+    pub fn average_time(&self) -> String {
+        ResponseTimes::period(&self.mean)
+    }
+
+    fn period(duration: &Duration) -> String {
+        let hours = duration.as_secs() / 3600;
+        let (num, period) = if hours > 48 {
+            (hours / 24, "days")
+        } else if hours > 24 {
+            (1, "day")
+        } else if hours > 1 {
+            (hours, "hours")
+        } else {
+            (1, "hour")
+        };
+        format!("{} {}", num, period)
+    }
+}
+
 /// Various compiled statistics regarding contributions to a Github repository.
 ///
 /// For the relevant fields below, an "official" response is any made by a
@@ -247,6 +276,8 @@ pub struct Statistics {
     pub code_contributors: HashMap<String, usize>,
     /// The count of all issues, opened or closed.
     pub all_issues: usize,
+    /// How many of the issues have been closed?
+    pub all_closed_issues: usize,
     /// All issues that have been responded to in some way.
     pub issues_with_responses: usize,
     /// All issues that have been responded to "officially".
@@ -278,6 +309,69 @@ pub struct Statistics {
     pub prs_closed_without_merging: usize,
     /// How long does it take for PRs to be merged?
     pub pr_merge_time: Option<ResponseTimes>,
+}
+
+impl Statistics {
+    // TODO Make this proper markdown.
+    pub fn report(self, repo: &str) -> String {
+        let issues = if self.all_issues == 0 {
+            "This repo has had no issues.".to_string()
+        } else {
+            let (any_median, any_mean) = self
+                .issue_first_resp_time
+                .map(|rt| (rt.median_time(), rt.average_time()))
+                .unwrap_or_else(|| ("None".to_string(), "None".to_string()));
+
+            let (official_median, official_mean) = self
+                .issue_official_first_resp_time
+                .map(|rt| (rt.median_time(), rt.average_time()))
+                .unwrap_or_else(|| ("None".to_string(), "None".to_string()));
+
+            format!(
+                r#"
+This repo has had {} issues, {} of which are now closed ({:.1}%).
+
+- {} ({:.1}%) of these received a response.
+- {} ({:.1}%) had an official response from a repo Owner or organization Member.
+- {} ({:.1}%) had a response from any other previous Contributor.
+
+Response Times (any):
+- Median: {}
+- Average: {}
+
+Response Times (official):
+- Median: {}
+- Average: {}
+"#,
+                self.all_issues,
+                self.all_closed_issues,
+                percent(self.all_closed_issues, self.all_issues),
+                self.issues_with_responses,
+                percent(self.issues_with_responses, self.all_issues),
+                self.issues_with_official_responses,
+                percent(self.issues_with_official_responses, self.all_issues),
+                self.issues_with_contributor_responses,
+                percent(self.issues_with_contributor_responses, self.all_issues),
+                any_median,
+                any_mean,
+                official_median,
+                official_mean,
+            )
+        };
+
+        format!(
+            r#"Report for {}
+
+# --- ISSUES --- #
+{}
+
+# --- PULL REQUESTS --- #
+
+# --- CONTRIBUTORS --- #
+"#,
+            repo, issues
+        )
+    }
 }
 
 /// Generate a client with preset headers for communicating with the Github API.
@@ -379,6 +473,10 @@ where
     }
 
     a
+}
+
+fn percent(a: usize, b: usize) -> f64 {
+    100.0 * (a as f64) / (b as f64)
 }
 
 #[test]
