@@ -39,7 +39,7 @@ struct Env {
 fn main() {
     let env = Env::parse_args_or_exit(ParsingStyle::AllOptions);
     match work(&env) {
-        Ok(result) => print!("{}", result),
+        Ok(result) => println!("{}", result),
         Err(e) => {
             eprintln!("{}", e);
             process::exit(1)

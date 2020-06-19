@@ -432,9 +432,9 @@ pub fn repository_threads(
     owner: &str,
     repo: &str,
 ) -> anyhow::Result<Postings> {
-    println!("Fetching Issues...");
+    eprintln!("Fetching Issues...");
     let raw_issues = github::all_issues(client, owner, repo)?;
-    println!("Fetching Issue comments...");
+    eprintln!("Fetching Issue comments...");
     let issues = raw_issues
         .par_iter()
         .progress_count(raw_issues.len() as u64)
@@ -442,9 +442,9 @@ pub fn repository_threads(
         .filter_map(|i| issue_thread(client, owner, repo, i).ok().map(Issue))
         .collect();
 
-    println!("Fetching PRs...");
+    eprintln!("Fetching PRs...");
     let raw_prs = github::all_prs(client, owner, repo)?;
-    println!("Fetching PR comments...");
+    eprintln!("Fetching PR comments...");
     let prs = raw_prs
         .par_iter()
         .progress_count(raw_prs.len() as u64)
