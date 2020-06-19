@@ -99,10 +99,10 @@ pub fn all_issues(client: &HttpClient, owner: &str, repo: &str) -> anyhow::Resul
         .collect())
 }
 
-// TODO Could use `rayon` here to parallelize over all the queries that are
-// known to be necessary. If the first ever response had a `link` header, it'll
-// also include the `last` ref. From that we could just do them all at the same
-// time with "guessed" URLs (although Github says not to guess.)
+// Could use `rayon` here to parallelize over all the queries that are known to
+// be necessary. If the first ever response had a `link` header, it'll also
+// include the `last` ref. From that we could just do them all at the same time
+// with "guessed" URLs (although Github says not to guess.)
 /// Query the Github API continually until the `link` header claims there aren't
 /// any further pages.
 fn paged_lookups<A>(client: &HttpClient, url: &str) -> anyhow::Result<Vec<A>>

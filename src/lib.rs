@@ -135,6 +135,17 @@ impl Postings {
             |t| t.first_contributor_response,
         );
 
+        let prs_closed_without_merging = self
+            .prs
+            .iter()
+            .filter(|p| p.merged.is_none())
+            .filter(|p| p.thread.closed.is_some())
+            .count();
+
+        // let pr_merge_time = self.resp_times(
+        //     || self.prs.iter().map
+        // );
+
         let code_contributors = self
             .prs
             .iter()
@@ -165,6 +176,7 @@ impl Postings {
             issue_official_first_resp_time,
             issue_contributor_first_resp_time,
             all_prs,
+            prs_closed_without_merging,
             prs_with_responses,
             prs_with_official_responses,
             prs_with_contributor_responses,
@@ -255,6 +267,10 @@ pub struct Statistics {
     pub pr_official_first_resp_time: Option<ResponseTimes>,
     /// How long does it take for any contributor to respond to a PR?
     pub pr_contributor_first_resp_time: Option<ResponseTimes>,
+    /// The count of all PRs which were closed with being merged.
+    pub prs_closed_without_merging: usize,
+    // /// How long does it take for PRs to be merged?
+    // pub pr_merge_time: Option<ResponseTimes>,
 }
 
 /// Generate a client with preset headers for communicating with the Github API.
