@@ -2,6 +2,7 @@
 
 use anyhow::anyhow;
 use gumdrop::{Options, ParsingStyle};
+use itertools::Itertools;
 use std::process;
 
 //- ~credit~: Just pull as much as possible via the Github API.
@@ -28,9 +29,9 @@ struct Env {
     /// Github personal access token
     token: String,
 
-    /// A Github repository to check
+    /// A Github repository to check (can pass multiple times)
     #[options(free, parse(try_from_str = "split_repo"))]
-    repo: (String, String),
+    repos: Vec<(String, String)>,
 
     /// Output as JSON
     json: bool,
@@ -38,7 +39,7 @@ struct Env {
 
 fn main() {
     let env = Env::parse_args_or_exit(ParsingStyle::AllOptions);
-    match work(&env) {
+    match work(env) {
         Ok(result) => println!("{}", result),
         Err(e) => {
             eprintln!("{}", e);
@@ -47,16 +48,43 @@ fn main() {
     }
 }
 
-fn work(env: &Env) -> anyhow::Result<String> {
+fn work(env: Env) -> anyhow::Result<String> {
     let client = credit::client(&env.token)?;
-    let postings = credit::repository_threads(&client, &env.repo.0, &env.repo.1)?;
-    let stats = postings.statistics();
 
-    if env.json {
-        let json = serde_json::to_string(&stats)?;
-        Ok(json)
+    if env.repos.is_empty() {
+        Err(anyhow!("No repositories given!"))
     } else {
-        Ok(stats.report(&env.repo.1))
+        let (bads, goods): (Vec<_>, Vec<_>) = env
+            .repos
+            .iter()
+            .map(|(owner, repo)| credit::repository_threads(&client, &owner, &repo))
+            .partition_map(|r| From::from(r));
+
+        if !bads.is_empty() {
+            eprintln!("There were some errors:");
+            for e in bads {
+                eprintln!("{}", e);
+            }
+        }
+
+        if !goods.is_empty() {
+            let zero = credit::Postings {
+                issues: vec![],
+                prs: vec![],
+            };
+            let all = goods.into_iter().fold(zero, |acc, ps| acc.combine(ps));
+            let stats = all.statistics();
+
+            if env.json {
+                let json = serde_json::to_string(&stats)?;
+                Ok(json)
+            } else {
+                let name = env.repos.iter().map(|(_, name)| name).join(", ");
+                Ok(stats.report(&name))
+            }
+        } else {
+            Err(anyhow!("No results to show!"))
+        }
     }
 }
 

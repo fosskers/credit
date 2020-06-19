@@ -82,6 +82,17 @@ pub struct Postings {
 }
 
 impl Postings {
+    /// Combine the results of two repository lookups.
+    pub fn combine(self, other: Postings) -> Postings {
+        let mut issues = self.issues;
+        let mut prs = self.prs;
+
+        issues.extend(other.issues);
+        prs.extend(other.prs);
+
+        Postings { issues, prs }
+    }
+
     /// Consumes the `Postings` to form all the statistics.
     pub fn statistics(self) -> Statistics {
         let all_issues = self.issues.len();
@@ -278,7 +289,7 @@ impl Statistics {
     // TODO Make this proper markdown.
     pub fn report(self, repo: &str) -> String {
         let issues = if self.all_issues == 0 {
-            "This repo has had no issues.".to_string()
+            "No issues found.".to_string()
         } else {
             let (any_median, any_mean) = self
                 .issue_first_resp_time
@@ -292,7 +303,7 @@ impl Statistics {
 
             format!(
                 r#"
-This repo has had {} issues, {} of which are now closed ({:.1}%).
+{} issues found, {} of which are now closed ({:.1}%).
 
 - {} ({:.1}%) of these received a response.
 - {} ({:.1}%) have an official response from a repo Owner or organization Member.
@@ -319,7 +330,7 @@ Response Times (official):
         };
 
         let prs = if self.all_prs == 0 {
-            "This repo has had no Pull Requests.".to_string()
+            "No Pull Requests found.".to_string()
         } else {
             let (any_median, any_mean) = self
                 .pr_first_resp_time
@@ -338,7 +349,7 @@ Response Times (official):
 
             format!(
                 r#"
-This repo has had {} Pull Requests, {} of which are now merged ({:.1}%).
+{} Pull Requests found, {} of which are now merged ({:.1}%).
 {} have been closed without merging ({:.1}%).
 
 - {} ({:.1}%) of these received a response.
