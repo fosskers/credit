@@ -5,21 +5,6 @@ use gumdrop::{Options, ParsingStyle};
 use itertools::Itertools;
 use std::process;
 
-//- ~credit~: Just pull as much as possible via the Github API.
-//- Who comments the most?
-//- Average time to first issue response?
-//- Average response time from Owner?
-//- Who's PRs are getting merged?
-//- Who is reviewing?
-//- Query multiple repos at once and merge the results
-//- Gotta call the endpoints I want manually.
-
-//- Allow the supplying of start and end dates. This can be used to
-//  track stats within a specific time period (say, some period in the past when
-//  you worked on a specific project).
-
-// Number of commits on `master` isn't counted - you can see that on Github :)
-
 /// A tool for measuring repository contributions.
 #[derive(Debug, Options)]
 struct Env {
@@ -58,7 +43,7 @@ fn work(env: Env) -> anyhow::Result<String> {
             .repos
             .iter()
             .map(|(owner, repo)| credit::repository_threads(&client, &owner, &repo))
-            .partition_map(|r| From::from(r));
+            .partition_map(From::from);
 
         if !bads.is_empty() {
             eprintln!("There were some errors:");

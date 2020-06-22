@@ -2,7 +2,7 @@
 
 [![Build](https://github.com/fosskers/credit/workflows/Build/badge.svg)](https://github.com/fosskers/credit/actions)
 [![](https://img.shields.io/crates/v/credit.svg)](https://crates.io/crates/credit)
-
+![AUR version](https://img.shields.io/aur/version/credit-bin)
 
 `credit` - A tool for measuring Github repository contributions and the overall
 health of a project.
@@ -136,6 +136,10 @@ a single commit, but save the company. `credit` takes the stance that, over
 time, with a large enough sample size, general trends of "who's doing the work"
 will emerge. **Expect weird results** for one-man projects or projects that
 otherwise have a long history of pushing directly to `master` without using PRs.
+
+> Why not use commit counts instead of PRs?
+
+Per-user commit counts are already available on Github.
 
 ### Median vs Mean
 
