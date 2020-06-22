@@ -1,5 +1,7 @@
 //! A tool for measuring repository contributions.
 
+mod github;
+
 use anyhow::anyhow;
 use gumdrop::{Options, ParsingStyle};
 use itertools::Itertools;
@@ -36,41 +38,47 @@ fn main() {
 fn work(env: Env) -> anyhow::Result<String> {
     let client = credit::client(&env.token)?;
 
-    if env.repos.is_empty() {
-        Err(anyhow!("No repositories given!"))
-    } else {
-        let (bads, goods): (Vec<_>, Vec<_>) = env
-            .repos
-            .iter()
-            .map(|(owner, repo)| credit::repository_threads(&client, &owner, &repo))
-            .partition_map(From::from);
+    let issues = github::v4_issues(&client, "fosskers", "aura")?;
 
-        if !bads.is_empty() {
-            eprintln!("There were some errors:");
-            for e in bads {
-                eprintln!("{}", e);
-            }
-        }
+    println!("{:#?}", issues);
 
-        if !goods.is_empty() {
-            let zero = credit::Postings {
-                issues: vec![],
-                prs: vec![],
-            };
-            let all = goods.into_iter().fold(zero, |acc, ps| acc.combine(ps));
-            let stats = all.statistics();
+    Ok("Yay!".to_string())
 
-            if env.json {
-                let json = serde_json::to_string(&stats)?;
-                Ok(json)
-            } else {
-                let name = env.repos.iter().map(|(_, name)| name).join(", ");
-                Ok(stats.report(&name))
-            }
-        } else {
-            Err(anyhow!("No results to show!"))
-        }
-    }
+    // if env.repos.is_empty() {
+    //     Err(anyhow!("No repositories given!"))
+    // } else {
+    //     let (bads, goods): (Vec<_>, Vec<_>) = env
+    //         .repos
+    //         .iter()
+    //         .map(|(owner, repo)| credit::repository_threads(&client, &owner, &repo))
+    //         .partition_map(From::from);
+
+    //     if !bads.is_empty() {
+    //         eprintln!("There were some errors:");
+    //         for e in bads {
+    //             eprintln!("{}", e);
+    //         }
+    //     }
+
+    //     if !goods.is_empty() {
+    //         let zero = credit::Postings {
+    //             issues: vec![],
+    //             prs: vec![],
+    //         };
+    //         let all = goods.into_iter().fold(zero, |acc, ps| acc.combine(ps));
+    //         let stats = all.statistics();
+
+    //         if env.json {
+    //             let json = serde_json::to_string(&stats)?;
+    //             Ok(json)
+    //         } else {
+    //             let name = env.repos.iter().map(|(_, name)| name).join(", ");
+    //             Ok(stats.report(&name))
+    //         }
+    //     } else {
+    //         Err(anyhow!("No results to show!"))
+    //     }
+    // }
 }
 
 fn split_repo(repo: &str) -> anyhow::Result<(String, String)> {

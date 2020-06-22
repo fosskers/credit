@@ -7,6 +7,206 @@ use isahc::prelude::*;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 
+// GRAPHQL NOTES
+//
+// I won't bother paginating on the comments, which means that only the first
+// 100 comments per issue will be counted.
+//
+// Much less likely to hit any rate limits via the GraphQL API.
+//
+// Orders of magnitude fewer HTTP calls necessary to get all data.
+//
+// Issue and PR data is NOT mixed! So no need to refilter out the PRs like I'm
+// currently doing.
+
+const ISSUE_QUERY: &str = r#"{
+    repository(owner: "{}", name: "{}") {
+        issues(first: 100) {
+            pageInfo {
+                hasNextPage
+                    endCursor
+            }
+            edges {
+                node {
+                    author {
+                        login
+                    }
+                    createdAt
+                        closedAt
+                        comments(first: 100) {
+                            edges {
+                                node {
+                                    author {
+                                        login
+                                    }
+                                    authorAssociation
+                                        createdAt
+                                }
+                            }
+                        }
+                }
+            }
+        }
+    }
+}"#;
+
+/// The never-changing URL to POST to for any V4 request.
+const V4_URL: &str = "https://api.github.com/graphql";
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PageInfo {
+    has_next_page: bool,
+    end_cursor: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Edges<A> {
+    pub edges: Vec<Node<A>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Node<A> {
+    pub node: A,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Paged<A> {
+    page_info: PageInfo,
+    edges: Vec<Node<A>>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IssueV4 {
+    pub author: Author,
+    pub created_at: DateTime<Utc>,
+    pub closed_at: Option<DateTime<Utc>>,
+    pub comments: Edges<CommentV4>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Author {
+    pub login: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CommentV4 {
+    pub author: Author,
+    pub author_association: Association,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Deserialize)]
+struct IssueQuery {
+    data: IssueRepo,
+}
+
+#[derive(Deserialize)]
+struct IssueRepo {
+    repository: Issues,
+}
+
+#[derive(Deserialize)]
+struct Issues {
+    issues: Paged<IssueV4>,
+}
+
+fn issue_query(owner: &str, repo: &str) -> String {
+    format!(
+        r#"{{
+    "query": {{
+        "repository(owner: "{}", name: "{}") {{
+            issues(first: 10) {{
+                pageInfo {{
+                    hasNextPage
+                    endCursor
+                }}
+                edges {{
+                    node {{
+                        author {{
+                            login
+                        }}
+                        createdAt
+                        closedAt
+                        comments(first: 10) {{
+                            edges {{
+                                node {{
+                                    author {{
+                                        login
+                                    }}
+                                    authorAssociation
+                                    createdAt
+                                }}
+                            }}
+                        }}
+                    }}
+                }}
+            }}
+        }}"
+    }}
+}}"#,
+        owner, repo
+    )
+}
+
+pub fn v4_issues(client: &HttpClient, owner: &str, repo: &str) -> anyhow::Result<Vec<IssueV4>> {
+    let body = issue_query(owner, repo);
+
+    let mut resp = client
+        .post(V4_URL, body)
+        .context("There was a problem calling the Github GraphQL API.")?;
+
+    let issue_query: IssueQuery = resp
+        .json()
+        .context("The responses couldn't be decoded into JSON.")?;
+
+    let issues = issue_query
+        .data
+        .repository
+        .issues
+        .edges
+        .into_iter()
+        .map(|n| n.node)
+        .collect();
+
+    Ok(issues)
+}
+
+// {
+//     repository(owner: "fosskers", name: "aura") {
+//         pullRequests(first: 100) {
+//             pageInfo {
+//                 hasNextPage
+//                     endCursor
+//             }
+//             edges {
+//                 node {
+//                     author {
+//                         login
+//                     }
+//                     createdAt
+//                         closedAt
+//                         mergedAt
+//                         comments(first: 100) {
+//                             edges {
+//                                 node {
+//                                     author {
+//                                         login
+//                                     }
+//                                     authorAssociation
+//                                         createdAt
+//                                 }
+//                             }
+//                         }
+//                 }
+//             }
+//         }
+//     }
+// }
+
 /// Some Github account.
 #[derive(Debug, Deserialize)]
 pub struct User {

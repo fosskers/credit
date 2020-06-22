@@ -427,8 +427,7 @@ Top 10 Code Contributors (by merged PRs):
 /// Generate a client with preset headers for communicating with the Github API.
 pub fn client(token: &str) -> anyhow::Result<HttpClient> {
     let client = HttpClient::builder()
-        .default_header("Accept", "application/vnd.github.v3+json")
-        .default_header("Authorization", format!("token {}", token))
+        .default_header("Authorization", format!("bearer {}", token))
         .build()
         .context("Failed to create initial HTTP client.")?;
 
