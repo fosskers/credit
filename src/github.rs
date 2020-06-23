@@ -114,44 +114,46 @@ struct Issues {
     issues: Paged<IssueV4>,
 }
 
-fn issue_query(owner: &str, repo: &str) -> String {
+// TODO Call 100 of each.
+pub fn issue_query(owner: &str, repo: &str) -> String {
     format!(
-        r#"{{
-    "query": {{
-        "repository(owner: "{}", name: "{}") {{
-            issues(first: 10) {{
-                pageInfo {{
-                    hasNextPage
-                    endCursor
-                }}
-                edges {{
-                    node {{
-                        author {{
-                            login
-                        }}
-                        createdAt
-                        closedAt
-                        comments(first: 10) {{
-                            edges {{
-                                node {{
-                                    author {{
-                                        login
-                                    }}
-                                    authorAssociation
-                                    createdAt
-                                }}
-                            }}
-                        }}
-                    }}
-                }}
-            }}
-        }}"
-    }}
-}}"#,
+        "{{ \
+    \"query\": \"{{ \
+        repository(owner: \\\"{}\\\", name: \\\"{}\\\") {{ \
+            issues(first: 10) {{ \
+                pageInfo {{ \
+                    hasNextPage \
+                    endCursor \
+                }} \
+                edges {{ \
+                    node {{ \
+                        author {{ \
+                            login \
+                        }} \
+                        createdAt \
+                        closedAt \
+                        comments(first: 10) {{ \
+                            edges {{ \
+                                node {{ \
+                                    author {{ \
+                                        login \
+                                    }} \
+                                    authorAssociation \
+                                    createdAt \
+                                }} \
+                            }} \
+                        }} \
+                    }} \
+                }} \
+            }} \
+        }} \
+    }}\" \
+    }}",
         owner, repo
     )
 }
 
+// TODO Generalize to be reusable by both Issues and PRs.
 pub fn v4_issues(client: &HttpClient, owner: &str, repo: &str) -> anyhow::Result<Vec<IssueV4>> {
     let body = issue_query(owner, repo);
 

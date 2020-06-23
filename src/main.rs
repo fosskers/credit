@@ -39,7 +39,6 @@ fn work(env: Env) -> anyhow::Result<String> {
     let client = credit::client(&env.token)?;
 
     let issues = github::v4_issues(&client, "fosskers", "aura")?;
-
     println!("{:#?}", issues);
 
     Ok("Yay!".to_string())
