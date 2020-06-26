@@ -442,14 +442,18 @@ pub fn repository_threads(
     repo: &str,
 ) -> anyhow::Result<Postings> {
     eprintln!("Fetching Issues...");
-    let raw_issues = github::all_issues(client, owner, repo)?;
-    eprintln!("Fetching Issue comments...");
-    let issues = raw_issues
-        .par_iter()
-        .progress_count(raw_issues.len() as u64)
-        // Silently discards errors.
-        .filter_map(|i| issue_thread(client, owner, repo, i).ok().map(Issue))
+    let issues = github::v4_issues(client, owner, repo)?
+        .into_iter()
+        .map(|i| Issue(v4_issue_thread(i)))
         .collect();
+    // let raw_issues = github::all_issues(client, owner, repo)?;
+    // eprintln!("Fetching Issue comments...");
+    // let issues = raw_issues
+    //     .par_iter()
+    //     .progress_count(raw_issues.len() as u64)
+    //     // Silently discards errors.
+    //     .filter_map(|i| issue_thread(client, owner, repo, i).ok().map(Issue))
+    //     .collect();
 
     // eprintln!("Fetching PRs...");
     // let raw_prs = github::all_prs(client, owner, repo)?;
@@ -468,6 +472,43 @@ pub fn repository_threads(
     let prs = vec![];
 
     Ok(Postings { issues, prs })
+}
+
+fn ghost(author: &Option<github::Author>) -> String {
+    author
+        .as_ref()
+        .map(|a| a.login.clone())
+        .unwrap_or_else(|| "@ghost".to_string())
+}
+
+fn v4_issue_thread(issue: github::IssueV4) -> Thread {
+    let comments: Vec<github::CommentV4> =
+        issue.comments.edges.into_iter().map(|n| n.node).collect();
+
+    // Need to be careful, since the first physical response might have been
+    // from the Issue author.
+    let first_comment = comments.iter().find(|c| !c.author_association.is_author());
+    let first_responder = first_comment.map(|c| ghost(&c.author));
+    let first_response = first_comment.map(|c| c.created_at);
+    let first_official_response = comments
+        .iter()
+        .find(|c| c.author_association.is_official())
+        .map(|c| c.created_at);
+    let comment_counts = comments
+        .iter()
+        .map(|c| ghost(&c.author))
+        .collect::<Counter<_>>()
+        .into_map();
+
+    Thread {
+        author: ghost(&issue.author),
+        posted: issue.created_at,
+        closed: issue.closed_at,
+        first_responder,
+        first_response,
+        first_official_response,
+        comments: comment_counts,
+    }
 }
 
 fn issue_thread(
