@@ -19,37 +19,6 @@ use serde::Deserialize;
 // Issue and PR data is NOT mixed! So no need to refilter out the PRs like I'm
 // currently doing.
 
-const ISSUE_QUERY: &str = r#"{
-    repository(owner: "{}", name: "{}") {
-        issues(first: 100) {
-            pageInfo {
-                hasNextPage
-                    endCursor
-            }
-            edges {
-                node {
-                    author {
-                        login
-                    }
-                    createdAt
-                        closedAt
-                        comments(first: 100) {
-                            edges {
-                                node {
-                                    author {
-                                        login
-                                    }
-                                    authorAssociation
-                                        createdAt
-                                }
-                            }
-                        }
-                }
-            }
-        }
-    }
-}"#;
-
 /// The never-changing URL to POST to for any V4 request.
 const V4_URL: &str = "https://api.github.com/graphql";
 
@@ -57,7 +26,7 @@ const V4_URL: &str = "https://api.github.com/graphql";
 #[serde(rename_all = "camelCase")]
 struct PageInfo {
     has_next_page: bool,
-    end_cursor: String,
+    end_cursor: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -80,7 +49,7 @@ struct Paged<A> {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct IssueV4 {
-    pub author: Author,
+    pub author: Option<Author>,
     pub created_at: DateTime<Utc>,
     pub closed_at: Option<DateTime<Utc>>,
     pub comments: Edges<CommentV4>,
@@ -94,7 +63,7 @@ pub struct Author {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CommentV4 {
-    pub author: Author,
+    pub author: Option<Author>,
     pub author_association: Association,
     pub created_at: DateTime<Utc>,
 }
@@ -115,12 +84,12 @@ struct Issues {
 }
 
 // TODO Call 100 of each.
-pub fn issue_query(owner: &str, repo: &str) -> String {
+pub fn issue_query(owner: &str, repo: &str, page: Option<&str>) -> String {
     format!(
         "{{ \
     \"query\": \"{{ \
         repository(owner: \\\"{}\\\", name: \\\"{}\\\") {{ \
-            issues(first: 10) {{ \
+            issues(first: 100{}) {{ \
                 pageInfo {{ \
                     hasNextPage \
                     endCursor \
@@ -132,7 +101,7 @@ pub fn issue_query(owner: &str, repo: &str) -> String {
                         }} \
                         createdAt \
                         closedAt \
-                        comments(first: 10) {{ \
+                        comments(first: 100) {{ \
                             edges {{ \
                                 node {{ \
                                     author {{ \
@@ -149,13 +118,25 @@ pub fn issue_query(owner: &str, repo: &str) -> String {
         }} \
     }}\" \
     }}",
-        owner, repo
+        owner,
+        repo,
+        page.map(|p| format!(", after: \\\"{}\\\"", p))
+            .unwrap_or_else(|| "".to_string())
     )
 }
 
-// TODO Generalize to be reusable by both Issues and PRs.
 pub fn v4_issues(client: &HttpClient, owner: &str, repo: &str) -> anyhow::Result<Vec<IssueV4>> {
-    let body = issue_query(owner, repo);
+    v4_issues_work(client, owner, repo, None)
+}
+
+// TODO Generalize to be reusable by both Issues and PRs.
+fn v4_issues_work(
+    client: &HttpClient,
+    owner: &str,
+    repo: &str,
+    page: Option<&str>,
+) -> anyhow::Result<Vec<IssueV4>> {
+    let body = issue_query(owner, repo, page);
 
     let mut resp = client
         .post(V4_URL, body)
@@ -165,7 +146,7 @@ pub fn v4_issues(client: &HttpClient, owner: &str, repo: &str) -> anyhow::Result
         .json()
         .context("The responses couldn't be decoded into JSON.")?;
 
-    let issues = issue_query
+    let mut issues: Vec<IssueV4> = issue_query
         .data
         .repository
         .issues
@@ -174,7 +155,16 @@ pub fn v4_issues(client: &HttpClient, owner: &str, repo: &str) -> anyhow::Result
         .map(|n| n.node)
         .collect();
 
-    Ok(issues)
+    let info = issue_query.data.repository.issues.page_info;
+
+    match info.end_cursor {
+        Some(c) if info.has_next_page => {
+            let mut next = v4_issues_work(client, owner, repo, Some(&c))?;
+            issues.append(&mut next);
+            Ok(issues)
+        }
+        _ => Ok(issues),
+    }
 }
 
 // {

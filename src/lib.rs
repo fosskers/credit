@@ -451,20 +451,21 @@ pub fn repository_threads(
         .filter_map(|i| issue_thread(client, owner, repo, i).ok().map(Issue))
         .collect();
 
-    eprintln!("Fetching PRs...");
-    let raw_prs = github::all_prs(client, owner, repo)?;
-    eprintln!("Fetching PR comments...");
-    let prs = raw_prs
-        .par_iter()
-        .progress_count(raw_prs.len() as u64)
-        // Sliently discards errors.
-        .filter_map(|i| {
-            issue_thread(client, owner, repo, i).ok().map(|t| PR {
-                thread: t,
-                merged: i.merged_at,
-            })
-        })
-        .collect();
+    // eprintln!("Fetching PRs...");
+    // let raw_prs = github::all_prs(client, owner, repo)?;
+    // eprintln!("Fetching PR comments...");
+    // let prs = raw_prs
+    //     .par_iter()
+    //     .progress_count(raw_prs.len() as u64)
+    //     // Sliently discards errors.
+    //     .filter_map(|i| {
+    //         issue_thread(client, owner, repo, i).ok().map(|t| PR {
+    //             thread: t,
+    //             merged: i.merged_at,
+    //         })
+    //     })
+    //     .collect();
+    let prs = vec![];
 
     Ok(Postings { issues, prs })
 }
