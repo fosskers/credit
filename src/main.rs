@@ -8,33 +8,53 @@ use std::process;
 
 /// A tool for measuring repository contributions.
 #[derive(Debug, Options)]
-struct Env {
-    /// Print this help text
+struct Args {
+    /// Print this help text.
     help: bool,
 
-    /// Github personal access token
+    /// Command to perform.
+    #[options(command)]
+    command: Option<Command>,
+}
+
+#[derive(Debug, Options)]
+enum Command {
+    /// Analyse repository contributions.
+    Repo(Repo),
+}
+
+#[derive(Debug, Options)]
+struct Repo {
+    /// Print this help text.
+    help: bool,
+
+    /// Output as JSON.
+    json: bool,
+
+    /// Github personal access token.
     token: String,
 
-    /// A Github repository to check (can pass multiple times)
+    /// A Github repository to check (can pass multiple times).
     #[options(free, parse(try_from_str = "split_repo"))]
     repos: Vec<(String, String)>,
-
-    /// Output as JSON
-    json: bool,
 }
 
 fn main() {
-    let env = Env::parse_args_or_exit(ParsingStyle::AllOptions);
-    match work(env) {
-        Ok(result) => println!("{}", result),
-        Err(e) => {
-            eprintln!("{}", e);
-            process::exit(1)
-        }
+    let args = Args::parse_args_or_exit(ParsingStyle::AllOptions);
+
+    match args.command {
+        None => println!("hah!"),
+        Some(Command::Repo(r)) => match work(r) {
+            Ok(result) => println!("{}", result),
+            Err(e) => {
+                eprintln!("{}", e);
+                process::exit(1)
+            }
+        },
     }
 }
 
-fn work(env: Env) -> anyhow::Result<String> {
+fn work(env: Repo) -> anyhow::Result<String> {
     let client = credit::client(&env.token)?;
 
     if env.repos.is_empty() {
