@@ -6,6 +6,8 @@
 
 - New `repo` command that holds the old default behaviour. Use this to analyse
   projects.
+- New `limit` command for reporting the remaining Github API query allowance for
+  a given token.
 - `credit` now uses the GraphQL-based V4 Github API. This has drastically
   improved performance and uses far less of a user's API quota upon each run.
 
