@@ -4,6 +4,8 @@
 
 #### Changed
 
+- New `repo` command that holds the old default behaviour. Use this to analyse
+  projects.
 - `credit` now uses the GraphQL-based V4 Github API. This has drastically
   improved performance and uses far less of a user's API quota upon each run.
 
