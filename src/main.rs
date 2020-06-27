@@ -41,6 +41,7 @@ struct Repo {
     serial: bool,
 
     /// Github personal access token.
+    #[options(required)]
     token: String,
 
     /// A Github repository to check (can pass multiple times).
@@ -55,6 +56,7 @@ struct Limit {
     help: bool,
 
     /// Github personal access token.
+    #[options(required)]
     token: String,
 }
 
