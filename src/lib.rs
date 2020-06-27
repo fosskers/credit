@@ -2,6 +2,9 @@
 
 mod github;
 
+// Re-export.
+pub use github::rate_limit;
+
 use anyhow::Context;
 use chrono::{DateTime, Utc};
 use counter::Counter;

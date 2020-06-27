@@ -57,8 +57,14 @@ fn main() {
 
     match args.command {
         None => println!("hah!"),
-        Some(Command::Limit(_)) => (),
-        Some(Command::Repo(r)) => match work(r) {
+        Some(Command::Limit(l)) => match limit(l) {
+            Ok(result) => println!("{}", result),
+            Err(e) => {
+                eprintln!("{}", e);
+                process::exit(1)
+            }
+        },
+        Some(Command::Repo(r)) => match repo(r) {
             Ok(result) => println!("{}", result),
             Err(e) => {
                 eprintln!("{}", e);
@@ -68,13 +74,21 @@ fn main() {
     }
 }
 
-fn work(env: Repo) -> anyhow::Result<String> {
-    let client = credit::client(&env.token)?;
+fn limit(l: Limit) -> anyhow::Result<String> {
+    let client = credit::client(&l.token)?;
+    let rl = credit::rate_limit(&client)?;
+    let json = serde_json::to_string(&rl)?;
 
-    if env.repos.is_empty() {
+    Ok(json)
+}
+
+fn repo(r: Repo) -> anyhow::Result<String> {
+    let client = credit::client(&r.token)?;
+
+    if r.repos.is_empty() {
         Err(anyhow!("No repositories given!"))
     } else {
-        let (bads, goods): (Vec<_>, Vec<_>) = env
+        let (bads, goods): (Vec<_>, Vec<_>) = r
             .repos
             .par_iter()
             .map(|(owner, repo)| credit::repository_threads(&client, &owner, &repo))
@@ -95,11 +109,11 @@ fn work(env: Repo) -> anyhow::Result<String> {
             let all = goods.into_iter().fold(zero, |acc, ps| acc.combine(ps));
             let stats = all.statistics();
 
-            if env.json {
+            if r.json {
                 let json = serde_json::to_string(&stats)?;
                 Ok(json)
             } else {
-                let name = env.repos.iter().map(|(_, name)| name).join(", ");
+                let name = r.repos.iter().map(|(_, name)| name).join(", ");
                 Ok(stats.report(&name))
             }
         } else {
