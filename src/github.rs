@@ -68,8 +68,24 @@ struct IssueRepo {
 }
 
 #[derive(Deserialize)]
-struct Issues {
-    issues: Paged<IssueV4>,
+#[serde(untagged)] // Serde is so good.
+enum Issues {
+    Issue {
+        issues: Paged<IssueV4>,
+    },
+    #[serde(rename_all = "camelCase")]
+    PullRequest {
+        pull_requests: Paged<IssueV4>,
+    },
+}
+
+impl Issues {
+    fn page(self) -> Paged<IssueV4> {
+        match self {
+            Issues::Issue { issues } => issues,
+            Issues::PullRequest { pull_requests } => pull_requests,
+        }
+    }
 }
 
 pub enum Mode {
@@ -164,16 +180,9 @@ fn v4_issues_work(
         .json()
         .context("The responses couldn't be decoded into JSON.")?;
 
-    let mut issues: Vec<IssueV4> = issue_query
-        .data
-        .repository
-        .issues
-        .edges
-        .into_iter()
-        .map(|n| n.node)
-        .collect();
-
-    let info = issue_query.data.repository.issues.page_info;
+    let page = issue_query.data.repository.page();
+    let info = page.page_info;
+    let mut issues: Vec<IssueV4> = page.edges.into_iter().map(|n| n.node).collect();
 
     match info.end_cursor {
         Some(c) if info.has_next_page => {
