@@ -1,7 +1,5 @@
 //! A tool for measuring repository contributions.
 
-mod github;
-
 use anyhow::anyhow;
 use gumdrop::{Options, ParsingStyle};
 use itertools::Itertools;

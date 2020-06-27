@@ -439,18 +439,18 @@ pub fn repository_threads(
     repo: &str,
 ) -> anyhow::Result<Postings> {
     eprintln!("Fetching Issues...");
-    let issues = github::v4_issues(client, &github::Mode::Issues, owner, repo)?
+    let issues = github::issues(client, &github::Mode::Issues, owner, repo)?
         .into_iter()
-        .map(|i| Issue(v4_issue_thread(i)))
+        .map(|i| Issue(issue_thread(i)))
         .collect();
 
     eprintln!("Fetching Pull Requests...");
-    let prs = github::v4_issues(client, &github::Mode::PRs, owner, repo)?
+    let prs = github::issues(client, &github::Mode::PRs, owner, repo)?
         .into_iter()
         .map(|i| {
             let merged = i.merged_at;
             PR {
-                thread: v4_issue_thread(i),
+                thread: issue_thread(i),
                 merged,
             }
         })
@@ -466,9 +466,8 @@ fn ghost(author: &Option<github::Author>) -> String {
         .unwrap_or_else(|| "@ghost".to_string())
 }
 
-fn v4_issue_thread(issue: github::IssueV4) -> Thread {
-    let comments: Vec<github::CommentV4> =
-        issue.comments.edges.into_iter().map(|n| n.node).collect();
+fn issue_thread(issue: github::Issue) -> Thread {
+    let comments: Vec<github::Comment> = issue.comments.edges.into_iter().map(|n| n.node).collect();
 
     // Need to be careful, since the first physical response might have been
     // from the Issue author.

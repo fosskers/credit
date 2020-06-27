@@ -33,15 +33,14 @@ struct Paged<A> {
     edges: Vec<Node<A>>,
 }
 
-// TODO Use this for deserializing the PRs as well?
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct IssueV4 {
+pub struct Issue {
     pub author: Option<Author>,
     pub created_at: DateTime<Utc>,
     pub closed_at: Option<DateTime<Utc>>,
     pub merged_at: Option<DateTime<Utc>>,
-    pub comments: Edges<CommentV4>,
+    pub comments: Edges<Comment>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -51,7 +50,7 @@ pub struct Author {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct CommentV4 {
+pub struct Comment {
     pub author: Option<Author>,
     pub author_association: Association,
     pub created_at: DateTime<Utc>,
@@ -71,16 +70,16 @@ struct IssueRepo {
 #[serde(untagged)] // Serde is so good.
 enum Issues {
     Issue {
-        issues: Paged<IssueV4>,
+        issues: Paged<Issue>,
     },
     #[serde(rename_all = "camelCase")]
     PullRequest {
-        pull_requests: Paged<IssueV4>,
+        pull_requests: Paged<Issue>,
     },
 }
 
 impl Issues {
-    fn page(self) -> Paged<IssueV4> {
+    fn page(self) -> Paged<Issue> {
         match self {
             Issues::Issue { issues } => issues,
             Issues::PullRequest { pull_requests } => pull_requests,
@@ -153,23 +152,23 @@ fn issue_query(mode: &Mode, owner: &str, repo: &str, page: Option<&str>) -> Stri
     )
 }
 
-pub fn v4_issues(
+/// Fetch all Issues or Pull Requests for a project, depending on the `Mode` given.
+pub fn issues(
     client: &HttpClient,
     mode: &Mode,
     owner: &str,
     repo: &str,
-) -> anyhow::Result<Vec<IssueV4>> {
-    v4_issues_work(client, mode, owner, repo, None)
+) -> anyhow::Result<Vec<Issue>> {
+    issues_work(client, mode, owner, repo, None)
 }
 
-// TODO Generalize to be reusable by both Issues and PRs.
-fn v4_issues_work(
+fn issues_work(
     client: &HttpClient,
     mode: &Mode,
     owner: &str,
     repo: &str,
     page: Option<&str>,
-) -> anyhow::Result<Vec<IssueV4>> {
+) -> anyhow::Result<Vec<Issue>> {
     let body = issue_query(mode, owner, repo, page);
 
     let mut resp = client
@@ -182,41 +181,16 @@ fn v4_issues_work(
 
     let page = issue_query.data.repository.page();
     let info = page.page_info;
-    let mut issues: Vec<IssueV4> = page.edges.into_iter().map(|n| n.node).collect();
+    let mut issues: Vec<Issue> = page.edges.into_iter().map(|n| n.node).collect();
 
     match info.end_cursor {
         Some(c) if info.has_next_page => {
-            let mut next = v4_issues_work(client, mode, owner, repo, Some(&c))?;
+            let mut next = issues_work(client, mode, owner, repo, Some(&c))?;
             issues.append(&mut next);
             Ok(issues)
         }
         _ => Ok(issues),
     }
-}
-
-/// Some Github account.
-#[derive(Debug, Deserialize)]
-pub struct User {
-    pub login: String,
-}
-
-/// The bare minimum to parse the `pull_request` field of an Issue's JSON
-/// response.
-#[derive(Debug, Deserialize)]
-pub struct PRField {
-    pub url: String,
-}
-
-/// A reduced form of the full response of an Issue or Pull Request query.
-#[derive(Debug, Deserialize)]
-pub struct Issue {
-    pub number: u32,
-    pub state: String,
-    pub user: User,
-    pub created_at: DateTime<Utc>,
-    pub closed_at: Option<DateTime<Utc>>,
-    pub merged_at: Option<DateTime<Utc>>,
-    pub pull_request: Option<PRField>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -246,12 +220,4 @@ impl Association {
             _ => false,
         }
     }
-}
-
-/// An issue comment.
-#[derive(Debug, Deserialize)]
-pub struct Comment {
-    pub user: User,
-    pub created_at: DateTime<Utc>,
-    pub author_association: Association,
 }
