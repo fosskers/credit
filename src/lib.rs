@@ -441,30 +441,32 @@ pub fn repository_threads(
     repo: &str,
 ) -> anyhow::Result<Postings> {
     let (issues, prs) = rayon::join(
-        || {
-            eprintln!("Fetching Issues for {}/{}...", owner, repo);
-            github::issues(client, &github::Mode::Issues, owner, repo)
-                .map(|is| is.into_iter().map(|i| Issue(issue_thread(i))).collect())
-        },
-        || {
-            eprintln!("Fetching Pull Requests for {}/{}...", owner, repo);
-            github::issues(client, &github::Mode::PRs, owner, repo).map(|is| {
-                is.into_iter()
-                    .map(|i| {
-                        let merged = i.merged_at;
-                        PR {
-                            thread: issue_thread(i),
-                            merged,
-                        }
-                    })
-                    .collect()
-            })
-        },
+        || all_issues(client, owner, repo),
+        || all_prs(client, owner, repo),
     );
 
     Ok(Postings {
         issues: issues?,
         prs: prs?,
+    })
+}
+
+fn all_issues(client: &HttpClient, owner: &str, repo: &str) -> anyhow::Result<Vec<Issue>> {
+    eprintln!("Fetching Issues for {}/{}...", owner, repo);
+    github::issues(client, &github::Mode::Issues, owner, repo)
+        .map(|is| is.into_iter().map(|i| Issue(issue_thread(i))).collect())
+}
+
+fn all_prs(client: &HttpClient, owner: &str, repo: &str) -> anyhow::Result<Vec<PR>> {
+    eprintln!("Fetching Pull Requests for {}/{}...", owner, repo);
+    github::issues(client, &github::Mode::PRs, owner, repo).map(|is| {
+        is.into_iter()
+            .map(|i| {
+                let merged = i.merged_at;
+                let thread = issue_thread(i);
+                PR { thread, merged }
+            })
+            .collect()
     })
 }
 
