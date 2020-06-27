@@ -4,6 +4,7 @@ use anyhow::anyhow;
 use gumdrop::{Options, ParsingStyle};
 use itertools::Itertools;
 use rayon::prelude::*;
+use std::io::{self, Read};
 use std::process;
 
 /// A tool for measuring repository contributions.
@@ -23,6 +24,8 @@ enum Command {
     Repo(Repo),
     /// Check the Github API for remaining rate limit allowance.
     Limit(Limit),
+    /// Print markdown of JSON from a previous run of `credit repo --json`.
+    Json(Json),
 }
 
 /// Analyse repository contributions.
@@ -52,6 +55,14 @@ struct Limit {
     token: String,
 }
 
+/// Accept JSON from a previous run of `credit` through `stdin`, and print
+/// the full Markdown output.
+#[derive(Options)]
+struct Json {
+    /// Print this help text.
+    help: bool,
+}
+
 fn main() {
     let args = Args::parse_args_or_exit(ParsingStyle::AllOptions);
 
@@ -61,6 +72,7 @@ fn main() {
         ))),
         Some(Command::Limit(l)) => report(limit(l)),
         Some(Command::Repo(r)) => report(repo(r)),
+        Some(Command::Json(_)) => report(json()),
     }
 }
 
@@ -73,6 +85,14 @@ fn report(result: anyhow::Result<String>) {
             process::exit(1)
         }
     }
+}
+
+fn json() -> anyhow::Result<String> {
+    let mut buffer = String::new();
+    io::stdin().read_to_string(&mut buffer)?;
+    let stats: credit::Statistics = serde_json::from_str(&buffer)?;
+
+    Ok(stats.report("Unknown Project"))
 }
 
 fn limit(l: Limit) -> anyhow::Result<String> {

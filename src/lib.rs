@@ -10,7 +10,7 @@ use chrono::{DateTime, Utc};
 use counter::Counter;
 use isahc::prelude::*;
 use itertools::Itertools;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Duration;
 
@@ -213,11 +213,10 @@ impl Postings {
 }
 
 /// Statistics involving [`Thread`](struct.Thread.html) response times.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct ResponseTimes {
     pub median: Duration,
     pub mean: Duration,
-    // pub std_deviation: f64,
 }
 
 impl ResponseTimes {
@@ -250,7 +249,7 @@ impl ResponseTimes {
 ///
 /// For the relevant fields below, an "official" response is any made by a
 /// repository Owner, an organization Member, or an invited Collaborator.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Statistics {
     /// All issue/PR commentors.
     pub commentors: HashMap<String, usize>,
