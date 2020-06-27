@@ -438,25 +438,32 @@ pub fn repository_threads(
     owner: &str,
     repo: &str,
 ) -> anyhow::Result<Postings> {
-    eprintln!("Fetching Issues...");
-    let issues = github::issues(client, &github::Mode::Issues, owner, repo)?
-        .into_iter()
-        .map(|i| Issue(issue_thread(i)))
-        .collect();
+    let (issues, prs) = rayon::join(
+        || {
+            eprintln!("Fetching Issues for {}/{}...", owner, repo);
+            github::issues(client, &github::Mode::Issues, owner, repo)
+                .map(|is| is.into_iter().map(|i| Issue(issue_thread(i))).collect())
+        },
+        || {
+            eprintln!("Fetching Pull Requests for {}/{}...", owner, repo);
+            github::issues(client, &github::Mode::PRs, owner, repo).map(|is| {
+                is.into_iter()
+                    .map(|i| {
+                        let merged = i.merged_at;
+                        PR {
+                            thread: issue_thread(i),
+                            merged,
+                        }
+                    })
+                    .collect()
+            })
+        },
+    );
 
-    eprintln!("Fetching Pull Requests...");
-    let prs = github::issues(client, &github::Mode::PRs, owner, repo)?
-        .into_iter()
-        .map(|i| {
-            let merged = i.merged_at;
-            PR {
-                thread: issue_thread(i),
-                merged,
-            }
-        })
-        .collect();
-
-    Ok(Postings { issues, prs })
+    Ok(Postings {
+        issues: issues?,
+        prs: prs?,
+    })
 }
 
 fn ghost(author: &Option<github::Author>) -> String {
