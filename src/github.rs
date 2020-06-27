@@ -4,20 +4,7 @@
 use anyhow::Context;
 use chrono::{DateTime, Utc};
 use isahc::prelude::*;
-use serde::de::DeserializeOwned;
 use serde::Deserialize;
-
-// GRAPHQL NOTES
-//
-// I won't bother paginating on the comments, which means that only the first
-// 100 comments per issue will be counted.
-//
-// Much less likely to hit any rate limits via the GraphQL API.
-//
-// Orders of magnitude fewer HTTP calls necessary to get all data.
-//
-// Issue and PR data is NOT mixed! So no need to refilter out the PRs like I'm
-// currently doing.
 
 /// The never-changing URL to POST to for any V4 request.
 const V4_URL: &str = "https://api.github.com/graphql";
@@ -46,12 +33,14 @@ struct Paged<A> {
     edges: Vec<Node<A>>,
 }
 
+// TODO Use this for deserializing the PRs as well?
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct IssueV4 {
     pub author: Option<Author>,
     pub created_at: DateTime<Utc>,
     pub closed_at: Option<DateTime<Utc>>,
+    pub merged_at: Option<DateTime<Utc>>,
     pub comments: Edges<CommentV4>,
 }
 
@@ -83,13 +72,33 @@ struct Issues {
     issues: Paged<IssueV4>,
 }
 
-// TODO Call 100 of each.
-pub fn issue_query(owner: &str, repo: &str, page: Option<&str>) -> String {
+pub enum Mode {
+    Issues,
+    PRs,
+}
+
+impl Mode {
+    fn graph_call(&self) -> &str {
+        match self {
+            Mode::Issues => "issues",
+            Mode::PRs => "pullRequests",
+        }
+    }
+
+    fn merged_field(&self) -> &str {
+        match self {
+            Mode::Issues => "",
+            Mode::PRs => "mergedAt",
+        }
+    }
+}
+
+fn issue_query(mode: &Mode, owner: &str, repo: &str, page: Option<&str>) -> String {
     format!(
         "{{ \
     \"query\": \"{{ \
         repository(owner: \\\"{}\\\", name: \\\"{}\\\") {{ \
-            issues(first: 100{}) {{ \
+            {}(first: 100{}) {{ \
                 pageInfo {{ \
                     hasNextPage \
                     endCursor \
@@ -101,6 +110,7 @@ pub fn issue_query(owner: &str, repo: &str, page: Option<&str>) -> String {
                         }} \
                         createdAt \
                         closedAt \
+                        {} \
                         comments(first: 100) {{ \
                             edges {{ \
                                 node {{ \
@@ -120,23 +130,31 @@ pub fn issue_query(owner: &str, repo: &str, page: Option<&str>) -> String {
     }}",
         owner,
         repo,
+        mode.graph_call(),
         page.map(|p| format!(", after: \\\"{}\\\"", p))
-            .unwrap_or_else(|| "".to_string())
+            .unwrap_or_else(|| "".to_string()),
+        mode.merged_field(),
     )
 }
 
-pub fn v4_issues(client: &HttpClient, owner: &str, repo: &str) -> anyhow::Result<Vec<IssueV4>> {
-    v4_issues_work(client, owner, repo, None)
+pub fn v4_issues(
+    client: &HttpClient,
+    mode: &Mode,
+    owner: &str,
+    repo: &str,
+) -> anyhow::Result<Vec<IssueV4>> {
+    v4_issues_work(client, mode, owner, repo, None)
 }
 
 // TODO Generalize to be reusable by both Issues and PRs.
 fn v4_issues_work(
     client: &HttpClient,
+    mode: &Mode,
     owner: &str,
     repo: &str,
     page: Option<&str>,
 ) -> anyhow::Result<Vec<IssueV4>> {
-    let body = issue_query(owner, repo, page);
+    let body = issue_query(mode, owner, repo, page);
 
     let mut resp = client
         .post(V4_URL, body)
@@ -159,45 +177,13 @@ fn v4_issues_work(
 
     match info.end_cursor {
         Some(c) if info.has_next_page => {
-            let mut next = v4_issues_work(client, owner, repo, Some(&c))?;
+            let mut next = v4_issues_work(client, mode, owner, repo, Some(&c))?;
             issues.append(&mut next);
             Ok(issues)
         }
         _ => Ok(issues),
     }
 }
-
-// {
-//     repository(owner: "fosskers", name: "aura") {
-//         pullRequests(first: 100) {
-//             pageInfo {
-//                 hasNextPage
-//                     endCursor
-//             }
-//             edges {
-//                 node {
-//                     author {
-//                         login
-//                     }
-//                     createdAt
-//                         closedAt
-//                         mergedAt
-//                         comments(first: 100) {
-//                             edges {
-//                                 node {
-//                                     author {
-//                                         login
-//                                     }
-//                                     authorAssociation
-//                                         createdAt
-//                                 }
-//                             }
-//                         }
-//                 }
-//             }
-//         }
-//     }
-// }
 
 /// Some Github account.
 #[derive(Debug, Deserialize)]
@@ -259,83 +245,4 @@ pub struct Comment {
     pub user: User,
     pub created_at: DateTime<Utc>,
     pub author_association: Association,
-}
-
-/// All issues belonging to a repository.
-///
-/// From the notes of the Github API:
-///
-/// > GitHub's REST API v3 considers every pull request an issue, but not every
-/// > issue is a pull request.
-pub fn all_issues(client: &HttpClient, owner: &str, repo: &str) -> anyhow::Result<Vec<Issue>> {
-    let url = format!(
-        "https://api.github.com/repos/{}/{}/issues?state=all&per_page=100",
-        owner, repo,
-    );
-
-    let issues: Vec<Issue> = paged_lookups(client, &url)?;
-
-    Ok(issues
-        .into_iter()
-        .filter(|i| i.pull_request.is_none())
-        .collect())
-}
-
-// Could use `rayon` here to parallelize over all the queries that are known to
-// be necessary. If the first ever response had a `link` header, it'll also
-// include the `last` ref. From that we could just do them all at the same time
-// with "guessed" URLs (although Github says not to guess.)
-/// Query the Github API continually until the `link` header claims there aren't
-/// any further pages.
-fn paged_lookups<A>(client: &HttpClient, url: &str) -> anyhow::Result<Vec<A>>
-where
-    A: DeserializeOwned,
-{
-    let mut resp = client
-        .get(url)
-        .context("There was a problem calling the Github API.")?;
-
-    let mut results = resp
-        .json::<Vec<A>>()
-        .context("The responses couldn't be decoded into JSON.")?;
-
-    match resp
-        .headers()
-        .get("link")
-        .and_then(|l| l.to_str().ok())
-        .and_then(|l| parse_link_header::parse(l).ok())
-        .and_then(|mut link_map| link_map.remove(&Some("next".to_string())))
-    {
-        None => Ok(results),
-        Some(link) => {
-            let mut next = paged_lookups(client, &link.raw_uri)?;
-            results.append(&mut next);
-            Ok(results)
-        }
-    }
-}
-
-/// All comments from a particular issue, in ascending order of posting date.
-pub fn issue_comments(
-    client: &HttpClient,
-    owner: &str,
-    repo: &str,
-    issue: u32,
-) -> anyhow::Result<Vec<Comment>> {
-    let url = format!(
-        "https://api.github.com/repos/{}/{}/issues/{}/comments?per_page=100",
-        owner, repo, issue
-    );
-
-    paged_lookups(client, &url)
-}
-
-/// All Pull Requests belonging to a repository, regardless of status.
-pub fn all_prs(client: &HttpClient, owner: &str, repo: &str) -> anyhow::Result<Vec<Issue>> {
-    let url = format!(
-        "https://api.github.com/repos/{}/{}/pulls?state=all&per_page=100",
-        owner, repo
-    );
-
-    paged_lookups(client, &url)
 }

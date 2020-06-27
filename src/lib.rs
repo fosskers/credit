@@ -5,10 +5,8 @@ mod github;
 use anyhow::Context;
 use chrono::{DateTime, Utc};
 use counter::Counter;
-use indicatif::ParallelProgressIterator;
 use isahc::prelude::*;
 use itertools::Itertools;
-use rayon::prelude::*;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::time::Duration;
@@ -286,7 +284,6 @@ pub struct Statistics {
 }
 
 impl Statistics {
-    // TODO Make this proper markdown.
     pub fn report(self, repo: &str) -> String {
         let issues = if self.all_issues == 0 {
             "No issues found.".to_string()
@@ -442,34 +439,22 @@ pub fn repository_threads(
     repo: &str,
 ) -> anyhow::Result<Postings> {
     eprintln!("Fetching Issues...");
-    let issues = github::v4_issues(client, owner, repo)?
+    let issues = github::v4_issues(client, &github::Mode::Issues, owner, repo)?
         .into_iter()
         .map(|i| Issue(v4_issue_thread(i)))
         .collect();
-    // let raw_issues = github::all_issues(client, owner, repo)?;
-    // eprintln!("Fetching Issue comments...");
-    // let issues = raw_issues
-    //     .par_iter()
-    //     .progress_count(raw_issues.len() as u64)
-    //     // Silently discards errors.
-    //     .filter_map(|i| issue_thread(client, owner, repo, i).ok().map(Issue))
-    //     .collect();
 
-    // eprintln!("Fetching PRs...");
-    // let raw_prs = github::all_prs(client, owner, repo)?;
-    // eprintln!("Fetching PR comments...");
-    // let prs = raw_prs
-    //     .par_iter()
-    //     .progress_count(raw_prs.len() as u64)
-    //     // Sliently discards errors.
-    //     .filter_map(|i| {
-    //         issue_thread(client, owner, repo, i).ok().map(|t| PR {
-    //             thread: t,
-    //             merged: i.merged_at,
-    //         })
-    //     })
-    //     .collect();
-    let prs = vec![];
+    eprintln!("Fetching Pull Requests...");
+    let prs = github::v4_issues(client, &github::Mode::PRs, owner, repo)?
+        .into_iter()
+        .map(|i| {
+            let merged = i.merged_at;
+            PR {
+                thread: v4_issue_thread(i),
+                merged,
+            }
+        })
+        .collect();
 
     Ok(Postings { issues, prs })
 }
@@ -509,43 +494,6 @@ fn v4_issue_thread(issue: github::IssueV4) -> Thread {
         first_official_response,
         comments: comment_counts,
     }
-}
-
-fn issue_thread(
-    client: &HttpClient,
-    owner: &str,
-    repo: &str,
-    issue: &github::Issue,
-) -> anyhow::Result<Thread> {
-    let comments = github::issue_comments(client, owner, repo, issue.number)?;
-
-    // Need to be careful, since the first physical response might have been
-    // from the Issue author.
-    let first_comment = comments.iter().find(|c| !c.author_association.is_author());
-
-    let first_responder = first_comment.map(|c| c.user.login.clone());
-    let first_response = first_comment.map(|c| c.created_at);
-
-    let first_official_response = comments
-        .iter()
-        .find(|c| c.author_association.is_official())
-        .map(|c| c.created_at);
-
-    let mut comment_counts = HashMap::new();
-    for c in comments {
-        let counter = comment_counts.entry(c.user.login).or_insert(0);
-        *counter += 1;
-    }
-
-    Ok(Thread {
-        author: issue.user.login.clone(),
-        posted: issue.created_at,
-        closed: issue.closed_at,
-        first_responder,
-        first_response,
-        first_official_response,
-        comments: comment_counts,
-    })
 }
 
 fn hashmap_combine<K, V>(mut a: HashMap<K, V>, b: HashMap<K, V>) -> HashMap<K, V>
