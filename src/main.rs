@@ -56,21 +56,22 @@ fn main() {
     let args = Args::parse_args_or_exit(ParsingStyle::AllOptions);
 
     match args.command {
-        None => println!("hah!"),
-        Some(Command::Limit(l)) => match limit(l) {
-            Ok(result) => println!("{}", result),
-            Err(e) => {
-                eprintln!("{}", e);
-                process::exit(1)
-            }
-        },
-        Some(Command::Repo(r)) => match repo(r) {
-            Ok(result) => println!("{}", result),
-            Err(e) => {
-                eprintln!("{}", e);
-                process::exit(1)
-            }
-        },
+        None => report(Err(anyhow!(
+            "No command specified. Did you mean to use `repo`?"
+        ))),
+        Some(Command::Limit(l)) => report(limit(l)),
+        Some(Command::Repo(r)) => report(repo(r)),
+    }
+}
+
+/// Report results and exit with the appropriate code.
+fn report(result: anyhow::Result<String>) {
+    match result {
+        Ok(result) => println!("{}", result),
+        Err(e) => {
+            eprintln!("{}", e);
+            process::exit(1)
+        }
     }
 }
 
