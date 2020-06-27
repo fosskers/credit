@@ -37,6 +37,9 @@ struct Repo {
     /// Output as JSON.
     json: bool,
 
+    /// Fetch Issues first, then PRs.
+    serial: bool,
+
     /// Github personal access token.
     token: String,
 
@@ -112,7 +115,7 @@ fn repo(r: Repo) -> anyhow::Result<String> {
         let (bads, goods): (Vec<_>, Vec<_>) = r
             .repos
             .par_iter()
-            .map(|(owner, repo)| credit::repository_threads(&client, &owner, &repo))
+            .map(|(owner, repo)| credit::repository_threads(&client, r.serial, &owner, &repo))
             .partition_map(From::from);
 
         if !bads.is_empty() {

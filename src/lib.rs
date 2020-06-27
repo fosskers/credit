@@ -437,13 +437,20 @@ pub fn client(token: &str) -> anyhow::Result<HttpClient> {
 /// statistics of all its Issues.
 pub fn repository_threads(
     client: &HttpClient,
+    serial: bool,
     owner: &str,
     repo: &str,
 ) -> anyhow::Result<Postings> {
-    let (issues, prs) = rayon::join(
-        || all_issues(client, owner, repo),
-        || all_prs(client, owner, repo),
-    );
+    let (issues, prs) = if serial {
+        let issues = all_issues(client, owner, repo);
+        let prs = all_prs(client, owner, repo);
+        (issues, prs)
+    } else {
+        rayon::join(
+            || all_issues(client, owner, repo),
+            || all_prs(client, owner, repo),
+        )
+    };
 
     Ok(Postings {
         issues: issues?,
