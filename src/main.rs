@@ -3,6 +3,7 @@
 use anyhow::anyhow;
 use gumdrop::{Options, ParsingStyle};
 use itertools::Itertools;
+use rayon::prelude::*;
 use std::process;
 
 /// A tool for measuring repository contributions.
@@ -41,7 +42,7 @@ fn work(env: Env) -> anyhow::Result<String> {
     } else {
         let (bads, goods): (Vec<_>, Vec<_>) = env
             .repos
-            .iter()
+            .par_iter()
             .map(|(owner, repo)| credit::repository_threads(&client, &owner, &repo))
             .partition_map(From::from);
 
