@@ -4,8 +4,8 @@
 [![](https://img.shields.io/crates/v/credit.svg)](https://crates.io/crates/credit)
 ![AUR version](https://img.shields.io/aur/version/credit-bin)
 
-`credit` - A tool for measuring Github repository contributions and the overall
-health of a project.
+`credit` - A fast tool for measuring Github repository contributions and the
+overall health of a project.
 
 Use `credit` to find out:
 
@@ -42,7 +42,7 @@ here](https://github.com/fosskers/active#oauth) for an additional example.
 > higher rate limit than the REST-based v3 API. This allows `credit` to run
 > quickly and work on projects with a long development history.
 >
-> Use `credit limit` to check your current API query allowance.
+> You can use `credit limit` to check your current API query allowance.
 
 ### Markdown Output
 
@@ -123,6 +123,20 @@ tools like [`jq`](https://github.com/stedolan/jq) or manipulated as you wish:
 
 ```
 > credit repo --token=<token> rust-lang/rustfmt --json
+```
+
+### Large Projects
+By default, `credit` queries for Issues and Pull Requests at the same time,
+which is fast and works well for most projects. For *very* large projects,
+however, this can make the Github API unhappy.
+
+If you notice `credit` failing on projects ones with many thousands of Issues
+and Pull Requests, consider the `--serial` flag. This will pull Issues first,
+and then Pull Requests. `--serial` allows `credit` to even work on the [Rust
+compiler](https://github.com/rust-lang/rust) itself!
+
+```
+> credit repo --token=<token> rust-lang/rust --serial
 ```
 
 ## Caveats
