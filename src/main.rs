@@ -7,7 +7,7 @@ use rayon::prelude::*;
 use std::process;
 
 /// A tool for measuring repository contributions.
-#[derive(Debug, Options)]
+#[derive(Options)]
 struct Args {
     /// Print this help text.
     help: bool,
@@ -17,13 +17,16 @@ struct Args {
     command: Option<Command>,
 }
 
-#[derive(Debug, Options)]
+#[derive(Options)]
 enum Command {
     /// Analyse repository contributions.
     Repo(Repo),
+    /// Check the Github API for remaining rate limit allowance.
+    Limit(Limit),
 }
 
-#[derive(Debug, Options)]
+/// Analyse repository contributions.
+#[derive(Options)]
 struct Repo {
     /// Print this help text.
     help: bool,
@@ -39,11 +42,22 @@ struct Repo {
     repos: Vec<(String, String)>,
 }
 
+/// Check the Github API for remaining rate limit allowance.
+#[derive(Options)]
+struct Limit {
+    /// Print this help text.
+    help: bool,
+
+    /// Github personal access token.
+    token: String,
+}
+
 fn main() {
     let args = Args::parse_args_or_exit(ParsingStyle::AllOptions);
 
     match args.command {
         None => println!("hah!"),
+        Some(Command::Limit(_)) => (),
         Some(Command::Repo(r)) => match work(r) {
             Ok(result) => println!("{}", result),
             Err(e) => {
