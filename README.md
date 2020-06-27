@@ -38,13 +38,11 @@ To use `credit`, you'll need a Github [Personal Access
 Token](https://github.com/settings/tokens) with `public_repo` permissions. [See
 here](https://github.com/fosskers/active#oauth) for an additional example.
 
-> **💡 Note:** `credit` calls the Github API, which has a rate limit of 5,000
-> requests per hour. If you use `credit` on too large of a project (5,000+
-> combined Issues and Pull Requests), it will use up all your allotted requests
-> and yield inaccurate results!
+> **💡 Note:** `credit` calls the GraphQL-based Github v4 API, which has a much
+> higher rate limit than the REST-based v3 API. This allows `credit` to run
+> quickly and work on projects with a long development history.
 >
-> Future developments will allow you to restrict your queries to certain time
-> periods.
+> Use `credit limit` to check your current API query allowance.
 
 ### Markdown Output
 
@@ -52,60 +50,70 @@ By default, `credit` outputs text to stdout that can be piped into a `.md` file
 and displayed as you wish:
 
 ```
-> credit --token=<token> fosskers/versions
+> credit repo --token=<token> rust-lang/rustfmt
 
-# Project Report for versions
+# Project Report for rustfmt
 
 ## Issues
 
-This repo has had 7 issues, 6 of which are now closed (85.7%).
+2462 issues found, 2189 of which are now closed (88.9%).
 
-- 6 (85.7%) of these received a response.
-- 6 (85.7%) have an official response from a repo Owner or organization Member.
+- 1899 (77.1%) of these received a response.
+- 1553 (63.1%) have an official response from a repo Owner or organization Member.
 
 Response Times (any):
-- Median: 1 hour
-- Average: 5 hours
+- Median: 10 hours
+- Average: 34 days
 
 Response Times (official):
-- Median: 1 hour
-- Average: 5 hours
+- Median: 13 hours
+- Average: 39 days
 
 ## Pull Requests
 
-This repo has had 19 Pull Requests, 8 of which are now merged (42.1%).
-11 have been closed without merging (57.9%).
+1821 Pull Requests found, 1650 of which are now merged (90.6%).
+168 have been closed without merging (9.2%).
 
-- 3 (15.8%) of these received a response.
-- 3 (15.8%) have an official response from a repo Owner or organization Member.
+- 1505 (82.6%) of these received a response.
+- 1379 (75.7%) have an official response from a repo Owner or organization Member.
 
 Response Times (any):
-- Median: 10 hours
-- Average: 10 hours
+- Median: 8 hours
+- Average: 2 days
 
 Response Times (official):
-- Median: 10 hours
-- Average: 10 hours
+- Median: 12 hours
+- Average: 2 days
 
 Time-to-Merge:
-- Median: 1 hour
-- Average: 10 hours
+- Median: 17 hours
+- Average: 3 days
 
 ## Contributors
 
 Top 10 Commentors (Issues and PRs):
-1. fosskers: 33
-2. omgbebebe: 4
-3. bergmark: 2
-4. taktoa: 2
-5. mightybyte: 2
-6. hvr: 2
-7. hasufell: 1
-8. jaspervdj-luminal: 1
+1. nrc: 2772
+2. topecongiro: 1526
+3. marcusklaas: 718
+4. calebcartwright: 461
+5. scampi: 331
+6. kamalmarhubi: 120
+7. rchaser53: 103
+8. cassiersg: 100
+9. gnzlbg: 79
+10. otavio: 63
 
 Top 10 Code Contributors (by merged PRs):
-1. fosskers: 7
-2. jaspervdj: 1
+1. topecongiro: 513
+2. marcusklaas: 125
+3. calebcartwright: 74
+4. nrc: 72
+5. scampi: 64
+6. rchaser53: 57
+7. davidalber: 34
+8. kamalmarhubi: 31
+9. ayazhafiz: 28
+10. sinkuu: 24
 ```
 
 ### JSON Output
@@ -114,9 +122,7 @@ You can also output the raw results as `--json`, which could then be piped to
 tools like [`jq`](https://github.com/stedolan/jq) or manipulated as you wish:
 
 ```
-> credit --token=<token> fosskers/versions --json
-
-{"commentors":{"bergmark":2,"fosskers":33,"taktoa":2,"omgbebebe":4,"hvr":2,"jaspervdj-luminal":1,"mightybyte":2,"hasufell":1},"code_contributors":{"jaspervdj":1,"fosskers":7},"all_issues":7,"all_closed_issues":6,"issues_with_responses":6,"issues_with_official_responses":6,"issue_first_resp_time":{"median":{"secs":5962,"nanos":0},"mean":{"secs":21545,"nanos":0}},"issue_official_first_resp_time":{"median":{"secs":5962,"nanos":0},"mean":{"secs":21545,"nanos":0}},"all_prs":19,"prs_with_responses":3,"prs_with_official_responses":3,"pr_first_resp_time":{"median":{"secs":36335,"nanos":0},"mean":{"secs":39128,"nanos":0}},"pr_official_first_resp_time":{"median":{"secs":36335,"nanos":0},"mean":{"secs":39128,"nanos":0}},"prs_merged":8,"prs_closed_without_merging":11,"pr_merge_time":{"median":{"secs":6265,"nanos":0},"mean":{"secs":38530,"nanos":0}}}
+> credit repo --token=<token> rust-lang/rustfmt --json
 ```
 
 ## Caveats
