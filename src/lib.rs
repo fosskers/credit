@@ -438,9 +438,10 @@ pub fn client(token: &str) -> anyhow::Result<HttpClient> {
 /// statistics of all its Issues.
 pub fn repo_threads(
     client: &HttpClient,
+    ipb: &ProgressBar,
+    ppb: &ProgressBar,
     serial: bool,
-    issue_pb: &ProgressBar,
-    pr_pb: &ProgressBar,
+    start: Option<DateTime<Utc>>,
     owner: &str,
     repo: &str,
 ) -> anyhow::Result<Postings> {
@@ -450,14 +451,14 @@ pub fn repo_threads(
     // Too much parallelism can trigger Github's abuse detection, so we offer
     // the "serial" option here.
     let (issues, prs) = if serial {
-        let issues = with_progress(issue_pb, &issue_msg, || all_issues(client, owner, repo));
-        let prs = with_progress(pr_pb, &pr_msg, || all_prs(client, owner, repo));
+        let issues = with_progress(ipb, &issue_msg, || all_issues(client, start, owner, repo));
+        let prs = with_progress(ppb, &pr_msg, || all_prs(client, start, owner, repo));
 
         (issues, prs)
     } else {
         rayon::join(
-            || with_progress(issue_pb, &issue_msg, || all_issues(client, owner, repo)),
-            || with_progress(pr_pb, &pr_msg, || all_prs(client, owner, repo)),
+            || with_progress(ipb, &issue_msg, || all_issues(client, start, owner, repo)),
+            || with_progress(ppb, &pr_msg, || all_prs(client, start, owner, repo)),
         )
     };
 
@@ -479,14 +480,35 @@ where
     result
 }
 
-fn all_issues(client: &HttpClient, owner: &str, repo: &str) -> anyhow::Result<Vec<Issue>> {
-    github::issues(client, &github::Mode::Issues, owner, repo)
-        .map(|is| is.into_iter().map(|i| Issue(issue_thread(i))).collect())
+fn all_issues(
+    client: &HttpClient,
+    start: Option<DateTime<Utc>>,
+    owner: &str,
+    repo: &str,
+) -> anyhow::Result<Vec<Issue>> {
+    github::issues(client, &github::Mode::Issues, owner, repo).map(|is| {
+        is.into_iter()
+            .filter(|i| match start {
+                None => true,
+                Some(s) => i.created_at >= s,
+            })
+            .map(|i| Issue(issue_thread(i)))
+            .collect()
+    })
 }
 
-fn all_prs(client: &HttpClient, owner: &str, repo: &str) -> anyhow::Result<Vec<PR>> {
+fn all_prs(
+    client: &HttpClient,
+    start: Option<DateTime<Utc>>,
+    owner: &str,
+    repo: &str,
+) -> anyhow::Result<Vec<PR>> {
     github::issues(client, &github::Mode::PRs, owner, repo).map(|is| {
         is.into_iter()
+            .filter(|i| match start {
+                None => true,
+                Some(s) => i.created_at >= s,
+            })
             .map(|i| {
                 let merged = i.merged_at;
                 let thread = issue_thread(i);

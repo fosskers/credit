@@ -1,6 +1,7 @@
 //! A tool for measuring repository contributions.
 
 use anyhow::anyhow;
+use chrono::{DateTime, NaiveDate, Utc};
 use gumdrop::{Options, ParsingStyle};
 use indicatif::{MultiProgress, ProgressBar};
 use itertools::Itertools;
@@ -44,6 +45,9 @@ struct Repo {
     /// Github personal access token.
     #[options(required)]
     token: String,
+
+    #[options(parse(try_from_str = "datetime"))]
+    start: Option<DateTime<Utc>>,
 
     /// A Github repository to check (can pass multiple times).
     #[options(free, parse(try_from_str = "split_repo"))]
@@ -134,7 +138,7 @@ fn repo(r: Repo) -> anyhow::Result<String> {
         let (bads, goods): (Vec<_>, Vec<_>) = spinners
             .par_iter()
             .map(|(ipb, ppb, owner, repo)| {
-                credit::repo_threads(&client, r.serial, &ipb, &ppb, &owner, &repo)
+                credit::repo_threads(&client, &ipb, &ppb, r.serial, r.start, &owner, &repo)
             })
             .partition_map(From::from);
 
@@ -174,4 +178,9 @@ fn split_repo(repo: &str) -> anyhow::Result<(String, String)> {
         .ok_or_else(|| anyhow!("{}", repo))?;
 
     Ok((owner.to_string(), project.to_string()))
+}
+
+fn datetime(date: &str) -> anyhow::Result<DateTime<Utc>> {
+    let naive = NaiveDate::parse_from_str(date, "%Y-%m-%d")?.and_hms(0, 0, 0);
+    Ok(DateTime::from_utc(naive, Utc))
 }
