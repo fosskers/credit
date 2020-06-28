@@ -8,6 +8,7 @@ pub use github::rate_limit;
 use anyhow::Context;
 use chrono::{DateTime, Utc};
 use counter::Counter;
+use indicatif::ProgressBar;
 use isahc::prelude::*;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
@@ -435,20 +436,28 @@ pub fn client(token: &str) -> anyhow::Result<HttpClient> {
 
 /// Given a repository name, look up the [`Thread`](struct.Thread.html)
 /// statistics of all its Issues.
-pub fn repository_threads(
+pub fn repo_threads(
     client: &HttpClient,
     serial: bool,
+    issue_pb: &ProgressBar,
+    pr_pb: &ProgressBar,
     owner: &str,
     repo: &str,
 ) -> anyhow::Result<Postings> {
+    let issue_msg = format!("Fetching Issues for {}/{}...", owner, repo);
+    let pr_msg = format!("Fetching Pull Requests for {}/{}...", owner, repo);
+
+    // Too much parallelism can trigger Github's abuse detection, so we offer
+    // the "serial" option here.
     let (issues, prs) = if serial {
-        let issues = all_issues(client, owner, repo);
-        let prs = all_prs(client, owner, repo);
+        let issues = with_progress(issue_pb, &issue_msg, || all_issues(client, owner, repo));
+        let prs = with_progress(pr_pb, &pr_msg, || all_prs(client, owner, repo));
+
         (issues, prs)
     } else {
         rayon::join(
-            || all_issues(client, owner, repo),
-            || all_prs(client, owner, repo),
+            || with_progress(issue_pb, &issue_msg, || all_issues(client, owner, repo)),
+            || with_progress(pr_pb, &pr_msg, || all_prs(client, owner, repo)),
         )
     };
 
@@ -458,14 +467,24 @@ pub fn repository_threads(
     })
 }
 
+/// Perform some action with an associated `ProgressBar`.
+fn with_progress<F, A>(progress: &ProgressBar, msg: &str, f: F) -> A
+where
+    F: FnOnce() -> A,
+{
+    progress.enable_steady_tick(120);
+    progress.set_message(&msg);
+    let result = f();
+    progress.finish_and_clear();
+    result
+}
+
 fn all_issues(client: &HttpClient, owner: &str, repo: &str) -> anyhow::Result<Vec<Issue>> {
-    eprintln!("Fetching Issues for {}/{}...", owner, repo);
     github::issues(client, &github::Mode::Issues, owner, repo)
         .map(|is| is.into_iter().map(|i| Issue(issue_thread(i))).collect())
 }
 
 fn all_prs(client: &HttpClient, owner: &str, repo: &str) -> anyhow::Result<Vec<PR>> {
-    eprintln!("Fetching Pull Requests for {}/{}...", owner, repo);
     github::issues(client, &github::Mode::PRs, owner, repo).map(|is| {
         is.into_iter()
             .map(|i| {

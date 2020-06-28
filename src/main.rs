@@ -2,10 +2,11 @@
 
 use anyhow::anyhow;
 use gumdrop::{Options, ParsingStyle};
+use indicatif::{MultiProgress, ProgressBar};
 use itertools::Itertools;
 use rayon::prelude::*;
 use std::io::{self, Read};
-use std::process;
+use std::{process, thread};
 
 /// A tool for measuring repository contributions.
 #[derive(Options)]
@@ -114,10 +115,27 @@ fn repo(r: Repo) -> anyhow::Result<String> {
     if r.repos.is_empty() {
         Err(anyhow!("No repositories given!"))
     } else {
-        let (bads, goods): (Vec<_>, Vec<_>) = r
+        let m = MultiProgress::new();
+
+        let spinners = r
             .repos
+            .iter()
+            .map(|(owner, repo)| {
+                let issue_pb = m.add(ProgressBar::new_spinner());
+                let pr_pb = m.add(ProgressBar::new_spinner());
+                (issue_pb, pr_pb, owner, repo)
+            })
+            .collect::<Vec<_>>();
+
+        // Apparently the thread itself doesn't need to be `join`ed for the
+        // spinners to appear.
+        thread::spawn(move || m.join_and_clear());
+
+        let (bads, goods): (Vec<_>, Vec<_>) = spinners
             .par_iter()
-            .map(|(owner, repo)| credit::repository_threads(&client, r.serial, &owner, &repo))
+            .map(|(ipb, ppb, owner, repo)| {
+                credit::repo_threads(&client, r.serial, &ipb, &ppb, &owner, &repo)
+            })
             .partition_map(From::from);
 
         if !bads.is_empty() {
