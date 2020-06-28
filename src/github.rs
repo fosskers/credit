@@ -210,8 +210,14 @@ fn issues_work(
     let info = page.page_info;
     let mut issues: Vec<Issue> = page.edges.into_iter().map(|n| n.node).collect();
 
+    // If the user supplied `--end`, we don't need to page past the point
+    // they're looking for.
+    let stop_early = end
+        .and_then(|e| issues.last().map(|i| i.created_at > e))
+        .unwrap_or(false);
+
     match info.end_cursor {
-        Some(c) if info.has_next_page => {
+        Some(c) if info.has_next_page && !stop_early => {
             let mut next = issues_work(client, end, mode, owner, repo, Some(&c))?;
             issues.append(&mut next);
             Ok(issues)
