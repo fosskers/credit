@@ -1,5 +1,12 @@
 # credit
 
+## Unreleased
+
+#### Added
+
+- New `--start` and `--end` options for `repo` that will only consider
+  contributions/comments between the given dates.
+
 ## 1.0.0 (2020-06-27)
 
 #### Added
