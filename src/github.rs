@@ -180,15 +180,17 @@ fn issue_query(mode: &Mode, owner: &str, repo: &str, page: Option<&str>) -> Stri
 /// Fetch all Issues or Pull Requests for a project, depending on the `Mode` given.
 pub fn issues(
     client: &HttpClient,
+    end: &Option<DateTime<Utc>>,
     mode: &Mode,
     owner: &str,
     repo: &str,
 ) -> anyhow::Result<Vec<Issue>> {
-    issues_work(client, mode, owner, repo, None)
+    issues_work(client, end, mode, owner, repo, None)
 }
 
 fn issues_work(
     client: &HttpClient,
+    end: &Option<DateTime<Utc>>,
     mode: &Mode,
     owner: &str,
     repo: &str,
@@ -210,7 +212,7 @@ fn issues_work(
 
     match info.end_cursor {
         Some(c) if info.has_next_page => {
-            let mut next = issues_work(client, mode, owner, repo, Some(&c))?;
+            let mut next = issues_work(client, end, mode, owner, repo, Some(&c))?;
             issues.append(&mut next);
             Ok(issues)
         }

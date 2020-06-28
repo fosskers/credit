@@ -441,8 +441,8 @@ pub fn repo_threads(
     ipb: &ProgressBar,
     ppb: &ProgressBar,
     serial: bool,
-    start: Option<DateTime<Utc>>,
-    end: Option<DateTime<Utc>>,
+    start: &Option<DateTime<Utc>>,
+    end: &Option<DateTime<Utc>>,
     owner: &str,
     repo: &str,
 ) -> anyhow::Result<Postings> {
@@ -482,18 +482,17 @@ where
 
 fn all_issues(
     client: &HttpClient,
-    start: Option<DateTime<Utc>>,
-    end: Option<DateTime<Utc>>,
+    start: &Option<DateTime<Utc>>,
+    end: &Option<DateTime<Utc>>,
     owner: &str,
     repo: &str,
 ) -> anyhow::Result<Vec<Issue>> {
-    github::issues(client, &github::Mode::Issues, owner, repo).map(|is| {
+    github::issues(client, end, &github::Mode::Issues, owner, repo).map(|is| {
         is.into_iter()
-            .filter(|i| match (start, end) {
-                (None, None) => true,
-                (Some(s), None) => i.created_at >= s,
-                (None, Some(e)) => i.created_at <= e,
-                (Some(s), Some(e)) => i.created_at >= s && i.created_at <= e,
+            .filter(|i| {
+                let after = start.map(|s| i.created_at >= s).unwrap_or(true);
+                let before = end.map(|e| i.created_at <= e).unwrap_or(true);
+                after && before
             })
             .map(|i| Issue(issue_thread(i)))
             .collect()
@@ -502,18 +501,17 @@ fn all_issues(
 
 fn all_prs(
     client: &HttpClient,
-    start: Option<DateTime<Utc>>,
-    end: Option<DateTime<Utc>>,
+    start: &Option<DateTime<Utc>>,
+    end: &Option<DateTime<Utc>>,
     owner: &str,
     repo: &str,
 ) -> anyhow::Result<Vec<PR>> {
-    github::issues(client, &github::Mode::PRs, owner, repo).map(|is| {
+    github::issues(client, end, &github::Mode::PRs, owner, repo).map(|is| {
         is.into_iter()
-            .filter(|i| match (start, end) {
-                (None, None) => true,
-                (Some(s), None) => i.created_at >= s,
-                (None, Some(e)) => i.created_at <= e,
-                (Some(s), Some(e)) => i.created_at >= s && i.created_at <= e,
+            .filter(|i| {
+                let after = start.map(|s| i.created_at >= s).unwrap_or(true);
+                let before = end.map(|e| i.created_at <= e).unwrap_or(true);
+                after && before
             })
             .map(|i| {
                 let merged = i.merged_at;

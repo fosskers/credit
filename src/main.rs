@@ -143,7 +143,7 @@ fn repo(r: Repo) -> anyhow::Result<String> {
         let (bads, goods): (Vec<_>, Vec<_>) = spinners
             .par_iter()
             .map(|(ipb, ppb, owner, repo)| {
-                credit::repo_threads(&c, &ipb, &ppb, r.serial, r.start, r.end, &owner, &repo)
+                credit::repo_threads(&c, &ipb, &ppb, r.serial, &r.start, &r.end, &owner, &repo)
             })
             .partition_map(From::from);
 
