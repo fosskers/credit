@@ -1,8 +1,8 @@
 # credit
 
-## Unreleased
+## 1.0.0 (2020-06-27)
 
-#### Changed
+#### Added
 
 - New `repo` command that holds the old default behaviour. Use this to analyse
   projects.
@@ -10,6 +10,9 @@
   a given token.
 - New `json` command for generating a full Markdown report for JSON results
   produced by a previous run of `credit repo --json`.
+
+#### Changed
+
 - `credit` now uses the GraphQL-based V4 Github API. This has drastically
   improved performance and uses far less of a user's API quota upon each run.
 

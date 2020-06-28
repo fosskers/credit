@@ -4,7 +4,7 @@
 [![](https://img.shields.io/crates/v/credit.svg)](https://crates.io/crates/credit)
 ![AUR version](https://img.shields.io/aur/version/credit-bin)
 
-`credit` - A fast tool for measuring Github repository contributions and the
+`credit` is a fast tool for measuring Github repository contributions and the
 overall health of a project.
 
 Use `credit` to find out:
