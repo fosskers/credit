@@ -57,7 +57,9 @@ struct Paged<A> {
     edges: Vec<Node<A>>,
 }
 
-#[derive(Debug, Deserialize)]
+/// A single structure that represents the results from either an `issues` call
+/// or a `pullRequests` call from the GraphQL API.
+#[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Issue {
     pub author: Option<Author>,
@@ -65,6 +67,7 @@ pub struct Issue {
     pub closed_at: Option<DateTime<Utc>>,
     pub merged_at: Option<DateTime<Utc>>,
     pub comments: Edges<Comment>,
+    pub commits: Option<CommitCount>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -78,6 +81,12 @@ pub struct Comment {
     pub author: Option<Author>,
     pub author_association: Association,
     pub created_at: DateTime<Utc>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CommitCount {
+    pub total_count: u32,
 }
 
 /// The top-level results of a GraphQL query.

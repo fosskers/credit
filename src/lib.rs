@@ -34,6 +34,7 @@ impl Threaded for Issue {
 #[derive(Debug)]
 pub struct PR {
     pub thread: Thread,
+    pub commits: u32,
     pub merged: Option<DateTime<Utc>>,
 }
 
@@ -515,8 +516,13 @@ fn all_prs(
             })
             .map(|i| {
                 let merged = i.merged_at;
+                let commits = i.commits.as_ref().map(|cc| cc.total_count).unwrap_or(0);
                 let thread = issue_thread(i);
-                PR { thread, merged }
+                PR {
+                    thread,
+                    merged,
+                    commits,
+                }
             })
             .collect()
     })
