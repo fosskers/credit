@@ -397,14 +397,14 @@ Top 10 Code Contributors (by merged PRs):
                 .sorted_by(|a, b| b.1.cmp(&a.1))
                 .take(10)
                 .enumerate()
-                .map(|(i, (name, prs))| format!("{}. {}: {}", i + 1, name, prs))
+                .map(|(i, (name, prs))| format!("{:2}. {}: {}", i + 1, name, prs))
                 .join("\n"),
             self.code_contributors
                 .into_iter()
                 .sorted_by(|a, b| b.1.cmp(&a.1))
                 .take(10)
                 .enumerate()
-                .map(|(i, (name, prs))| format!("{}. {}: {}", i + 1, name, prs))
+                .map(|(i, (name, prs))| format!("{:2}. {}: {}", i + 1, name, prs))
                 .join("\n"),
         );
 
