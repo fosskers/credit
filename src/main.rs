@@ -36,18 +36,23 @@ struct Repo {
     /// Print this help text.
     help: bool,
 
+    /// Github personal access token.
+    #[options(required)]
+    token: String,
+
+    /// Only consider contributions / comments after the given date.
+    #[options(parse(try_from_str = "datetime"), meta = "YYYY-MM-DD")]
+    start: Option<DateTime<Utc>>,
+
+    /// Only consider contributions / comments before the given date.
+    #[options(parse(try_from_str = "datetime"), meta = "YYYY-MM-DD")]
+    end: Option<DateTime<Utc>>,
+
     /// Output as JSON.
     json: bool,
 
     /// Fetch Issues first, then PRs.
     serial: bool,
-
-    /// Github personal access token.
-    #[options(required)]
-    token: String,
-
-    #[options(parse(try_from_str = "datetime"))]
-    start: Option<DateTime<Utc>>,
 
     /// A Github repository to check (can pass multiple times).
     #[options(free, parse(try_from_str = "split_repo"))]
@@ -114,7 +119,7 @@ fn limit(l: Limit) -> anyhow::Result<String> {
 }
 
 fn repo(r: Repo) -> anyhow::Result<String> {
-    let client = credit::client(&r.token)?;
+    let c = credit::client(&r.token)?;
 
     if r.repos.is_empty() {
         Err(anyhow!("No repositories given!"))
@@ -138,7 +143,7 @@ fn repo(r: Repo) -> anyhow::Result<String> {
         let (bads, goods): (Vec<_>, Vec<_>) = spinners
             .par_iter()
             .map(|(ipb, ppb, owner, repo)| {
-                credit::repo_threads(&client, &ipb, &ppb, r.serial, r.start, &owner, &repo)
+                credit::repo_threads(&c, &ipb, &ppb, r.serial, r.start, r.end, &owner, &repo)
             })
             .partition_map(From::from);
 

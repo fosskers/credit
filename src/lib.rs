@@ -442,23 +442,23 @@ pub fn repo_threads(
     ppb: &ProgressBar,
     serial: bool,
     start: Option<DateTime<Utc>>,
+    end: Option<DateTime<Utc>>,
     owner: &str,
     repo: &str,
 ) -> anyhow::Result<Postings> {
-    let issue_msg = format!("Fetching Issues for {}/{}...", owner, repo);
-    let pr_msg = format!("Fetching Pull Requests for {}/{}...", owner, repo);
+    let i_msg = format!("Fetching Issues for {}/{}...", owner, repo);
+    let p_msg = format!("Fetching Pull Requests for {}/{}...", owner, repo);
 
     // Too much parallelism can trigger Github's abuse detection, so we offer
     // the "serial" option here.
     let (issues, prs) = if serial {
-        let issues = with_progress(ipb, &issue_msg, || all_issues(client, start, owner, repo));
-        let prs = with_progress(ppb, &pr_msg, || all_prs(client, start, owner, repo));
-
+        let issues = with_progress(ipb, &i_msg, || all_issues(client, start, end, owner, repo));
+        let prs = with_progress(ppb, &p_msg, || all_prs(client, start, end, owner, repo));
         (issues, prs)
     } else {
         rayon::join(
-            || with_progress(ipb, &issue_msg, || all_issues(client, start, owner, repo)),
-            || with_progress(ppb, &pr_msg, || all_prs(client, start, owner, repo)),
+            || with_progress(ipb, &i_msg, || all_issues(client, start, end, owner, repo)),
+            || with_progress(ppb, &p_msg, || all_prs(client, start, end, owner, repo)),
         )
     };
 
@@ -483,14 +483,17 @@ where
 fn all_issues(
     client: &HttpClient,
     start: Option<DateTime<Utc>>,
+    end: Option<DateTime<Utc>>,
     owner: &str,
     repo: &str,
 ) -> anyhow::Result<Vec<Issue>> {
     github::issues(client, &github::Mode::Issues, owner, repo).map(|is| {
         is.into_iter()
-            .filter(|i| match start {
-                None => true,
-                Some(s) => i.created_at >= s,
+            .filter(|i| match (start, end) {
+                (None, None) => true,
+                (Some(s), None) => i.created_at >= s,
+                (None, Some(e)) => i.created_at <= e,
+                (Some(s), Some(e)) => i.created_at >= s && i.created_at <= e,
             })
             .map(|i| Issue(issue_thread(i)))
             .collect()
@@ -500,14 +503,17 @@ fn all_issues(
 fn all_prs(
     client: &HttpClient,
     start: Option<DateTime<Utc>>,
+    end: Option<DateTime<Utc>>,
     owner: &str,
     repo: &str,
 ) -> anyhow::Result<Vec<PR>> {
     github::issues(client, &github::Mode::PRs, owner, repo).map(|is| {
         is.into_iter()
-            .filter(|i| match start {
-                None => true,
-                Some(s) => i.created_at >= s,
+            .filter(|i| match (start, end) {
+                (None, None) => true,
+                (Some(s), None) => i.created_at >= s,
+                (None, Some(e)) => i.created_at <= e,
+                (Some(s), Some(e)) => i.created_at >= s && i.created_at <= e,
             })
             .map(|i| {
                 let merged = i.merged_at;
