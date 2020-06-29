@@ -15,6 +15,24 @@ Use `credit` to find out:
 - How long it takes to get PRs merged.
 - If a library would be a safe long-term (i.e. maintained) dependency.
 
+<!-- markdown-toc start - Don't edit this section. Run M-x markdown-toc-refresh-toc -->
+**Table of Contents**
+
+- [Installation](#installation)
+    - [Arch Linux](#arch-linux)
+    - [Cargo](#cargo)
+- [Usage](#usage)
+    - [Markdown Output](#markdown-output)
+    - [JSON Output](#json-output)
+    - [Large Projects](#large-projects)
+- [FAQ](#faq)
+    - [How accurate is this?](#how-accurate-is-this)
+    - [Can I see commit counts too?](#can-i-see-commit-counts-too)
+    - [Why do the *Median* and *Average* values differ?](#why-do-the-median-and-average-values-differ)
+
+<!-- markdown-toc end -->
+
+
 ## Installation
 
 ### Arch Linux
@@ -116,6 +134,10 @@ Top 10 Code Contributors (by merged PRs):
 10. sinkuu: 24
 ```
 
+> **💡 Tip:** You can pass multiple repos at once to the `repo` command. The
+> results will be aggregated, which can give a good view of contributions across
+> an organization.
+
 ### JSON Output
 
 You can also output the raw results as `--json`, which could then be piped to
@@ -139,9 +161,9 @@ compiler](https://github.com/rust-lang/rust) itself!
 > credit repo --token=<token> rust-lang/rust --serial
 ```
 
-## Caveats
+## FAQ
 
-### Accuracy
+### How accurate is this?
 
 The numbers given by `credit` are not perfect measures of developer productivity
 nor maintainer responsiveness. Please use its results in good faith.
@@ -157,15 +179,15 @@ time, with a large enough sample size, general trends of "who's doing the work"
 will emerge. **Expect weird results** for one-man projects or projects that
 otherwise have a long history of pushing directly to `master` without using PRs.
 
-> Why not use commit counts instead of PRs?
+### Can I see commit counts too?
 
-Per-user commit counts are already available on Github.
+Yes! Pass `--commits` to the `repo` command. Keep in mind that this requires
+more data from Github, and so will take longer to complete.
 
-### Median vs Mean
+### Why do the *Median* and *Average* values differ?
 
-You may notice that sometimes the reported `Median` and `Average` results can be
-wildly different. Given the presence of outliers in a data set, it can sometimes
-be more accurate to consider the Median and not the Mean.
+Given the presence of outliers in a data set, it can sometimes be more accurate
+to consider the Median and not the Mean.
 
 In the case of maintainer response times, consider a developer who usually
 responds to all new Issues within 10 minutes. Then he goes on vacation, and
