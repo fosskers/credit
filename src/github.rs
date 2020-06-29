@@ -86,7 +86,7 @@ pub struct Comment {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CommitCount {
-    pub total_count: u32,
+    pub total_count: usize,
 }
 
 /// The top-level results of a GraphQL query.

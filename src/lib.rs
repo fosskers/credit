@@ -34,7 +34,7 @@ impl Threaded for Issue {
 #[derive(Debug)]
 pub struct PR {
     pub thread: Thread,
-    pub commits: u32,
+    pub commits: usize,
     pub merged: Option<DateTime<Utc>>,
 }
 
@@ -145,6 +145,17 @@ impl Postings {
 
         let pr_merge_time = self.resp_times(|| self.prs.iter(), |p| p.merged);
 
+        let mut contributor_commits = HashMap::new();
+        self.prs
+            .iter()
+            .filter(|p| p.merged.is_some())
+            .for_each(|p| {
+                let counter = contributor_commits
+                    .entry(p.thread.author.clone())
+                    .or_insert(0);
+                *counter += p.commits;
+            });
+
         let code_contributors = self
             .prs
             .iter()
@@ -167,6 +178,7 @@ impl Postings {
         Statistics {
             commentors,
             code_contributors,
+            contributor_commits,
             all_issues,
             all_closed_issues,
             issues_with_responses,
@@ -257,6 +269,8 @@ pub struct Statistics {
     pub commentors: HashMap<String, usize>,
     /// All users who had PRs merged.
     pub code_contributors: HashMap<String, usize>,
+    /// The commits-in-merged-PRs count for each user.
+    pub contributor_commits: HashMap<String, usize>,
     /// The count of all issues, opened or closed.
     pub all_issues: usize,
     /// How many of the issues have been closed?
