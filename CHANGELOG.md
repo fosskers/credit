@@ -6,8 +6,9 @@
 
 - New `--start` and `--end` options for `repo` that will only consider
   contributions/comments between the given dates.
-- Another contributor ranking has been added: the number of commits that appear
-  in merged PRs.
+- New `--commits` option for `repo`. This adds another contributor ranking: the
+  number of commits that appear in merged PRs. Keep in mind that using this
+  requires more data from Github, and so takes longer to complete.
 
 #### Changed
 
