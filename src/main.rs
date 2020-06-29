@@ -40,6 +40,9 @@ struct Repo {
     #[options(required)]
     token: String,
 
+    /// Look up Pull Request commit counts as well.
+    commits: bool,
+
     /// Only consider contributions / comments after the given date.
     #[options(parse(try_from_str = "datetime"), meta = "YYYY-MM-DD")]
     start: Option<DateTime<Utc>>,
@@ -76,6 +79,9 @@ struct Limit {
 struct Json {
     /// Print this help text.
     help: bool,
+
+    /// Show Pull Request commit counts.
+    commits: bool,
 }
 
 fn main() {
@@ -87,7 +93,7 @@ fn main() {
         ))),
         Some(Command::Limit(l)) => report(limit(l)),
         Some(Command::Repo(r)) => report(repo(r)),
-        Some(Command::Json(_)) => report(json()),
+        Some(Command::Json(j)) => report(json(j)),
     }
 }
 
@@ -102,12 +108,12 @@ fn report(result: anyhow::Result<String>) {
     }
 }
 
-fn json() -> anyhow::Result<String> {
+fn json(j: Json) -> anyhow::Result<String> {
     let mut buffer = String::new();
     io::stdin().read_to_string(&mut buffer)?;
     let stats: credit::Statistics = serde_json::from_str(&buffer)?;
 
-    Ok(stats.report("Unknown Project"))
+    Ok(stats.report("Unknown Project", j.commits))
 }
 
 fn limit(l: Limit) -> anyhow::Result<String> {
@@ -143,7 +149,9 @@ fn repo(r: Repo) -> anyhow::Result<String> {
         let (bads, goods): (Vec<_>, Vec<_>) = spinners
             .par_iter()
             .map(|(ipb, ppb, owner, repo)| {
-                credit::repo_threads(&c, &ipb, &ppb, r.serial, &r.start, &r.end, &owner, &repo)
+                credit::repo_threads(
+                    &c, &ipb, &ppb, r.serial, r.commits, &r.start, &r.end, &owner, &repo,
+                )
             })
             .partition_map(From::from);
 
@@ -167,7 +175,7 @@ fn repo(r: Repo) -> anyhow::Result<String> {
                 Ok(json)
             } else {
                 let name = r.repos.iter().map(|(_, name)| name).join(", ");
-                Ok(stats.report(&name))
+                Ok(stats.report(&name, r.commits))
             }
         } else {
             Err(anyhow!("No results to show!"))

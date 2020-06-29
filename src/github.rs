@@ -124,27 +124,28 @@ impl Issues {
 pub enum Mode {
     Issues,
     PRs,
+    PRsWithCommits,
 }
 
 impl Mode {
     fn graph_call(&self) -> &str {
         match self {
             Mode::Issues => "issues",
-            Mode::PRs => "pullRequests",
+            _ => "pullRequests",
         }
     }
 
     fn merged_field(&self) -> &str {
         match self {
             Mode::Issues => "",
-            Mode::PRs => "mergedAt",
+            _ => "mergedAt",
         }
     }
 
     fn commits(&self) -> &str {
         match self {
-            Mode::Issues => "",
-            Mode::PRs => "commits { totalCount }",
+            Mode::PRsWithCommits => "commits { totalCount }",
+            _ => "",
         }
     }
 }

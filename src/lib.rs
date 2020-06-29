@@ -302,7 +302,7 @@ pub struct Statistics {
 }
 
 impl Statistics {
-    pub fn report(self, repo: &str) -> String {
+    pub fn report(self, repo: &str, commits: bool) -> String {
         let issues = if self.all_issues == 0 {
             "No issues found.".to_string()
         } else {
@@ -406,9 +406,6 @@ Top 10 Commentors (Issues and PRs):
 
 Top 10 Code Contributors (by merged PRs):
 {}
-
-Top 10 Code Contributors (by commits-in-merged-PRs):
-{}
 "#,
             self.commentors
                 .into_iter()
@@ -424,14 +421,25 @@ Top 10 Code Contributors (by commits-in-merged-PRs):
                 .enumerate()
                 .map(|(i, (name, prs))| format!("{:2}. {}: {}", i + 1, name, prs))
                 .join("\n"),
-            self.contributor_commits
-                .into_iter()
-                .sorted_by(|a, b| b.1.cmp(&a.1))
-                .take(10)
-                .enumerate()
-                .map(|(i, (name, commits))| format!("{:2}. {}: {}", i + 1, name, commits))
-                .join("\n"),
         );
+
+        let contributor_commits = if commits {
+            format!(
+                r#"
+Top 10 Code Contributors (by commits-in-merged-PRs):
+{}
+"#,
+                self.contributor_commits
+                    .into_iter()
+                    .sorted_by(|a, b| b.1.cmp(&a.1))
+                    .take(10)
+                    .enumerate()
+                    .map(|(i, (name, commits))| format!("{:2}. {}: {}", i + 1, name, commits))
+                    .join("\n"),
+            )
+        } else {
+            "".to_string()
+        };
 
         format!(
             r#"# Project Report for {}
@@ -443,8 +451,8 @@ Top 10 Code Contributors (by commits-in-merged-PRs):
 {}
 
 ## Contributors
-{}"#,
-            repo, issues, prs, contributors
+{}{}"#,
+            repo, issues, prs, contributors, contributor_commits
         )
     }
 }
@@ -466,6 +474,7 @@ pub fn repo_threads(
     ipb: &ProgressBar,
     ppb: &ProgressBar,
     serial: bool,
+    commits: bool,
     start: &Option<DateTime<Utc>>,
     end: &Option<DateTime<Utc>>,
     owner: &str,
@@ -474,16 +483,19 @@ pub fn repo_threads(
     let i_msg = format!("Fetching Issues for {}/{}...", owner, repo);
     let p_msg = format!("Fetching Pull Requests for {}/{}...", owner, repo);
 
+    let get_issues = || all_issues(client, start, end, owner, repo);
+    let get_prs = || all_prs(client, start, end, commits, owner, repo);
+
     // Too much parallelism can trigger Github's abuse detection, so we offer
     // the "serial" option here.
     let (issues, prs) = if serial {
-        let issues = with_progress(ipb, &i_msg, || all_issues(client, start, end, owner, repo));
-        let prs = with_progress(ppb, &p_msg, || all_prs(client, start, end, owner, repo));
+        let issues = with_progress(ipb, &i_msg, get_issues);
+        let prs = with_progress(ppb, &p_msg, get_prs);
         (issues, prs)
     } else {
         rayon::join(
-            || with_progress(ipb, &i_msg, || all_issues(client, start, end, owner, repo)),
-            || with_progress(ppb, &p_msg, || all_prs(client, start, end, owner, repo)),
+            || with_progress(ipb, &i_msg, get_issues),
+            || with_progress(ppb, &p_msg, get_prs),
         )
     };
 
@@ -528,10 +540,16 @@ fn all_prs(
     client: &HttpClient,
     start: &Option<DateTime<Utc>>,
     end: &Option<DateTime<Utc>>,
+    commits: bool,
     owner: &str,
     repo: &str,
 ) -> anyhow::Result<Vec<PR>> {
-    github::issues(client, end, &github::Mode::PRs, owner, repo).map(|is| {
+    let mode = if commits {
+        github::Mode::PRsWithCommits
+    } else {
+        github::Mode::PRs
+    };
+    github::issues(client, end, &mode, owner, repo).map(|is| {
         is.into_iter()
             .filter(|i| {
                 let after = start.map(|s| i.created_at >= s).unwrap_or(true);
