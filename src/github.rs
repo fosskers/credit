@@ -220,9 +220,10 @@ fn issues_work(
         .post(V4_URL, body)
         .context("There was a problem calling the Github GraphQL API.")?;
 
-    let issue_query: Query<IssueRepo> = resp
-        .json()
-        .context("The responses couldn't be decoded into JSON.")?;
+    let text = resp.text()?;
+
+    let issue_query: Query<IssueRepo> = serde_json::from_str(&text)
+        .with_context(|| format!("The response couldn't be decoded into JSON:\n{}", text))?;
 
     let page = issue_query.data.repository.page();
     let info = page.page_info;
@@ -250,9 +251,10 @@ pub fn rate_limit(client: &HttpClient) -> anyhow::Result<RateLimit> {
         .post(V4_URL, LIMIT_QUERY)
         .context("There was a problem calling the Github GraphQL API.")?;
 
-    let limit_query: Query<RateLimitQuery> = resp
-        .json()
-        .context("The response couldn't be decoded into JSON.")?;
+    let text = resp.text()?;
+
+    let limit_query: Query<RateLimitQuery> = serde_json::from_str(&text)
+        .with_context(|| format!("The response couldn't be decoded into JSON:\n{}", text))?;
 
     Ok(limit_query.data.rate_limit)
 }
