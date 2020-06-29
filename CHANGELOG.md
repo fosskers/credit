@@ -10,11 +10,6 @@
   number of commits that appear in merged PRs. Keep in mind that using this
   requires more data from Github, and so takes longer to complete.
 
-#### Changed
-
-- The commits-in-merged-PRs statistic changed some types, and thus would
-  invalidate any output from `--json` given in `1.0.0`.
-
 ## 1.0.0 (2020-06-27)
 
 #### Added

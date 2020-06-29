@@ -270,6 +270,7 @@ pub struct Statistics {
     /// All users who had PRs merged.
     pub code_contributors: HashMap<String, usize>,
     /// The commits-in-merged-PRs count for each user.
+    #[serde(default)]
     pub contributor_commits: HashMap<String, usize>,
     /// The count of all issues, opened or closed.
     pub all_issues: usize,
