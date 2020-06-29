@@ -406,13 +406,16 @@ Top 10 Commentors (Issues and PRs):
 
 Top 10 Code Contributors (by merged PRs):
 {}
+
+Top 10 Code Contributors (by commits-in-merged-PRs):
+{}
 "#,
             self.commentors
                 .into_iter()
                 .sorted_by(|a, b| b.1.cmp(&a.1))
                 .take(10)
                 .enumerate()
-                .map(|(i, (name, prs))| format!("{:2}. {}: {}", i + 1, name, prs))
+                .map(|(i, (name, issues))| format!("{:2}. {}: {}", i + 1, name, issues))
                 .join("\n"),
             self.code_contributors
                 .into_iter()
@@ -420,6 +423,13 @@ Top 10 Code Contributors (by merged PRs):
                 .take(10)
                 .enumerate()
                 .map(|(i, (name, prs))| format!("{:2}. {}: {}", i + 1, name, prs))
+                .join("\n"),
+            self.contributor_commits
+                .into_iter()
+                .sorted_by(|a, b| b.1.cmp(&a.1))
+                .take(10)
+                .enumerate()
+                .map(|(i, (name, commits))| format!("{:2}. {}: {}", i + 1, name, commits))
                 .join("\n"),
         );
 
