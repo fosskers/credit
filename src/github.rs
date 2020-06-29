@@ -140,6 +140,13 @@ impl Mode {
             Mode::PRs => "mergedAt",
         }
     }
+
+    fn commits(&self) -> &str {
+        match self {
+            Mode::Issues => "",
+            Mode::PRs => "commits { totalCount }",
+        }
+    }
 }
 
 fn issue_query(mode: &Mode, owner: &str, repo: &str, page: Option<&str>) -> String {
@@ -159,6 +166,7 @@ fn issue_query(mode: &Mode, owner: &str, repo: &str, page: Option<&str>) -> Stri
                         }} \
                         createdAt \
                         closedAt \
+                        {} \
                         {} \
                         comments(first: 100) {{ \
                             edges {{ \
@@ -183,6 +191,7 @@ fn issue_query(mode: &Mode, owner: &str, repo: &str, page: Option<&str>) -> Stri
         page.map(|p| format!(", after: \\\"{}\\\"", p))
             .unwrap_or_else(|| "".to_string()),
         mode.merged_field(),
+        mode.commits(),
     )
 }
 
