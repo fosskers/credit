@@ -6,6 +6,13 @@
 
 - New `--start` and `--end` options for `repo` that will only consider
   contributions/comments between the given dates.
+- Another contributor ranking has been added: the number of commits that appear
+  in merged PRs.
+
+#### Changed
+
+- The commits-in-merged-PRs statistic changed some types, and thus would
+  invalidate any output from `--json` given in `1.0.0`.
 
 ## 1.0.0 (2020-06-27)
 
