@@ -1,5 +1,11 @@
 # credit
 
+## 1.1.1 (2020-07-18)
+
+#### Changed
+
+- Better release profile which produces smaller binaries.
+
 ## 1.1.0 (2020-06-28)
 
 #### Added
