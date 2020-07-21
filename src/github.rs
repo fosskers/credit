@@ -6,6 +6,12 @@ use chrono::{DateTime, Utc};
 use isahc::prelude::*;
 use serde::{Deserialize, Serialize};
 
+/// The maximum number of results to fetch in a page.
+const CONTRIBUTION_PAGE_SIZE: u32 = 25;
+
+/// The maximum number of pages to pull when querying for user contributions.
+const CONTRIBUTION_MAX_PAGES: u32 = 10 * (100 / CONTRIBUTION_PAGE_SIZE);
+
 /// The never-changing URL to POST to for any V4 request.
 const V4_URL: &str = "https://api.github.com/graphql";
 
@@ -40,22 +46,22 @@ struct SearchQuery {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct UserContributions {
-    login: String,
-    name: String,
-    contributions_collection: Contributions,
+pub struct UserContributions {
+    pub login: String,
+    pub name: String,
+    pub contributions_collection: Contributions,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct Contributions {
-    contribution_calendar: Calendar,
+pub struct Contributions {
+    pub contribution_calendar: Calendar,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct Calendar {
-    total_contributions: u32,
+pub struct Calendar {
+    pub total_contributions: u32,
 }
 
 #[derive(Debug, Deserialize)]
@@ -179,7 +185,7 @@ fn users_query(location: &str, page: Option<&str>) -> String {
     format!(
         "{{ \
          \"query\": \"{{ \
-         search(type: USER, query: \\\"type:user location:{} sort:followers-desc\\\", first: 25) {{ \
+         search(type: USER, query: \\\"type:user location:{} sort:followers-desc\\\", first: {}{}) {{ \
            pageInfo {{ \
              hasNextPage \
              endCursor \
@@ -200,7 +206,10 @@ fn users_query(location: &str, page: Option<&str>) -> String {
          }} \
        }}\" \
     }}",
-        location
+        location,
+        CONTRIBUTION_PAGE_SIZE,
+        page.map(|p| format!(", after: \\\"{}\\\"", p))
+            .unwrap_or_else(|| "".to_string()),
     )
 }
 
@@ -315,8 +324,16 @@ pub fn rate_limit(client: &HttpClient) -> anyhow::Result<RateLimit> {
 }
 
 /// Produce a list of Github Users, ordered by their contribution counts.
-pub fn user_contributions(client: &HttpClient) -> anyhow::Result<()> {
-    let body = users_query("Canada", None);
+pub fn user_contributions(client: &HttpClient) -> anyhow::Result<Vec<UserContributions>> {
+    user_contributions_work(client, None, 1)
+}
+
+fn user_contributions_work(
+    client: &HttpClient,
+    page: Option<&str>,
+    page_num: u32,
+) -> anyhow::Result<Vec<UserContributions>> {
+    let body = users_query("Canada", page);
 
     let mut resp = client
         .post(V4_URL, body)
@@ -327,9 +344,18 @@ pub fn user_contributions(client: &HttpClient) -> anyhow::Result<()> {
     let result: Query<SearchQuery> = serde_json::from_str(&text)
         .with_context(|| format!("The response couldn't be decoded into JSON:\n{}", text))?;
 
-    println!("{:#?}", result);
+    let page = result.data.search;
+    let info = page.page_info;
+    let mut users: Vec<UserContributions> = page.edges.into_iter().map(|n| n.node).collect();
 
-    Ok(())
+    match info.end_cursor {
+        Some(c) if info.has_next_page && page_num < CONTRIBUTION_MAX_PAGES => {
+            let mut next = user_contributions_work(client, Some(&c), page_num + 1)?;
+            users.append(&mut next);
+            Ok(users)
+        }
+        _ => Ok(users),
+    }
 }
 
 #[derive(Debug, Deserialize)]
