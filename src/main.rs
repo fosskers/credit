@@ -74,8 +74,9 @@ struct Users {
     #[options(required)]
     token: String,
 
-    /// The country to check (default: World).
-    area: Option<String>,
+    /// The country to check.
+    #[options(required)]
+    location: String,
 }
 
 /// Check the Github API for remaining rate limit allowance.
@@ -127,7 +128,23 @@ fn report(result: anyhow::Result<String>) {
 
 fn users(u: Users) -> anyhow::Result<String> {
     let client = credit::client(&u.token)?;
-    credit::user_contributions(&client)?;
+    let mut users = credit::user_contributions(&client, &u.location)?;
+    users.sort_by(|a, b| b.contributions().cmp(&a.contributions()));
+
+    for (i, user) in users
+        .iter()
+        .filter(|u| u.followers.total_count > 0) // Must be more than the mean / median?
+        .take(100)
+        .enumerate()
+    {
+        println!(
+            "{:02}. {} ({} contributions, {} followers)",
+            i,
+            user.login,
+            user.contributions(),
+            user.followers.total_count
+        );
+    }
 
     Ok("".to_string())
 }

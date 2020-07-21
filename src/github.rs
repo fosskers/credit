@@ -3,11 +3,12 @@
 
 use anyhow::Context;
 use chrono::{DateTime, Utc};
+use indicatif::ProgressBar;
 use isahc::prelude::*;
 use serde::{Deserialize, Serialize};
 
 /// The maximum number of results to fetch in a page.
-const CONTRIBUTION_PAGE_SIZE: u32 = 25;
+const CONTRIBUTION_PAGE_SIZE: u32 = 5;
 
 /// The maximum number of pages to pull when querying for user contributions.
 const CONTRIBUTION_MAX_PAGES: u32 = 10 * (100 / CONTRIBUTION_PAGE_SIZE);
@@ -48,14 +49,32 @@ struct SearchQuery {
 #[serde(rename_all = "camelCase")]
 pub struct UserContributions {
     pub login: String,
-    pub name: String,
+    pub name: Option<String>,
+    pub followers: Followers,
     pub contributions_collection: Contributions,
+}
+
+impl UserContributions {
+    pub fn contributions(&self) -> u32 {
+        let total = self
+            .contributions_collection
+            .contribution_calendar
+            .total_contributions;
+        total - self.contributions_collection.restricted_contributions_count
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Followers {
+    pub total_count: u32,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Contributions {
     pub contribution_calendar: Calendar,
+    pub restricted_contributions_count: u32,
 }
 
 #[derive(Debug, Deserialize)]
@@ -195,10 +214,14 @@ fn users_query(location: &str, page: Option<&str>) -> String {
                ... on User {{ \
                  login \
                  name \
+                 followers {{ \
+                   totalCount \
+                 }} \
                  contributionsCollection {{ \
                    contributionCalendar {{ \
                      totalContributions \
                    }} \
+                   restrictedContributionsCount \
                  }} \
                }} \
              }} \
@@ -324,16 +347,27 @@ pub fn rate_limit(client: &HttpClient) -> anyhow::Result<RateLimit> {
 }
 
 /// Produce a list of Github Users, ordered by their contribution counts.
-pub fn user_contributions(client: &HttpClient) -> anyhow::Result<Vec<UserContributions>> {
-    user_contributions_work(client, None, 1)
+pub fn user_contributions(
+    client: &HttpClient,
+    location: &str,
+) -> anyhow::Result<Vec<UserContributions>> {
+    let bar = ProgressBar::new(CONTRIBUTION_MAX_PAGES as u64);
+    bar.set_message("Fetching User contributions...");
+    let result = user_contributions_work(client, &bar, location, None, 1);
+    bar.finish_and_clear();
+    result
 }
 
 fn user_contributions_work(
     client: &HttpClient,
+    bar: &ProgressBar,
+    location: &str,
     page: Option<&str>,
     page_num: u32,
 ) -> anyhow::Result<Vec<UserContributions>> {
-    let body = users_query("Canada", page);
+    bar.inc(1);
+
+    let body = users_query(location, page);
 
     let mut resp = client
         .post(V4_URL, body)
@@ -350,7 +384,7 @@ fn user_contributions_work(
 
     match info.end_cursor {
         Some(c) if info.has_next_page && page_num < CONTRIBUTION_MAX_PAGES => {
-            let mut next = user_contributions_work(client, Some(&c), page_num + 1)?;
+            let mut next = user_contributions_work(client, bar, location, Some(&c), page_num + 1)?;
             users.append(&mut next);
             Ok(users)
         }
