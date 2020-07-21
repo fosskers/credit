@@ -24,6 +24,8 @@ struct Args {
 enum Command {
     /// Analyse repository contributions.
     Repo(Repo),
+    /// Find the most active users in a given area.
+    Users(Users),
     /// Check the Github API for remaining rate limit allowance.
     Limit(Limit),
     /// Print markdown of JSON from a previous run of `credit repo --json`.
@@ -62,6 +64,16 @@ struct Repo {
     repos: Vec<(String, String)>,
 }
 
+#[derive(Options)]
+struct Users {
+    /// Print this help text.
+    help: bool,
+
+    /// Github personal access token.
+    #[options(required)]
+    token: String,
+}
+
 /// Check the Github API for remaining rate limit allowance.
 #[derive(Options)]
 struct Limit {
@@ -87,14 +99,15 @@ struct Json {
 fn main() {
     let args = Args::parse_args_or_exit(ParsingStyle::AllOptions);
 
-    match args.command {
-        None => report(Err(anyhow!(
-            "No command specified. Did you mean to use `repo`?"
-        ))),
-        Some(Command::Limit(l)) => report(limit(l)),
-        Some(Command::Repo(r)) => report(repo(r)),
-        Some(Command::Json(j)) => report(json(j)),
-    }
+    let result = match args.command {
+        None => Err(anyhow!("No command specified. Did you mean to use `repo`?")),
+        Some(Command::Limit(l)) => limit(l),
+        Some(Command::Repo(r)) => repo(r),
+        Some(Command::Users(u)) => users(u),
+        Some(Command::Json(j)) => json(j),
+    };
+
+    report(result)
 }
 
 /// Report results and exit with the appropriate code.
@@ -106,6 +119,10 @@ fn report(result: anyhow::Result<String>) {
             process::exit(1)
         }
     }
+}
+
+fn users(u: Users) -> anyhow::Result<String> {
+    Ok("Done!".to_string())
 }
 
 fn json(j: Json) -> anyhow::Result<String> {
