@@ -33,7 +33,32 @@ struct RateLimitQuery {
     rate_limit: RateLimit,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
+struct SearchQuery {
+    search: Paged<UserContributions>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct UserContributions {
+    login: String,
+    name: String,
+    contributions_collection: Contributions,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Contributions {
+    contribution_calendar: Calendar,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Calendar {
+    total_contributions: u32,
+}
+
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct PageInfo {
     has_next_page: bool,
@@ -50,7 +75,7 @@ pub struct Node<A> {
     pub node: A,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Paged<A> {
     page_info: PageInfo,
@@ -90,7 +115,7 @@ pub struct CommitCount {
 }
 
 /// The top-level results of a GraphQL query.
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 struct Query<T> {
     data: T,
 }
@@ -148,6 +173,35 @@ impl Mode {
             _ => "",
         }
     }
+}
+
+fn users_query(location: &str, page: Option<&str>) -> String {
+    format!(
+        "{{ \
+         \"query\": \"{{ \
+         search(type: USER, query: \\\"type:user location:{} sort:followers-desc\\\", first: 25) {{ \
+           pageInfo {{ \
+             hasNextPage \
+             endCursor \
+           }} \
+           edges {{ \
+             node {{ \
+               ... on User {{ \
+                 login \
+                 name \
+                 contributionsCollection {{ \
+                   contributionCalendar {{ \
+                     totalContributions \
+                   }} \
+                 }} \
+               }} \
+             }} \
+           }} \
+         }} \
+       }}\" \
+    }}",
+        location
+    )
 }
 
 fn issue_query(mode: &Mode, owner: &str, repo: &str, page: Option<&str>) -> String {
@@ -258,6 +312,24 @@ pub fn rate_limit(client: &HttpClient) -> anyhow::Result<RateLimit> {
         .with_context(|| format!("The response couldn't be decoded into JSON:\n{}", text))?;
 
     Ok(limit_query.data.rate_limit)
+}
+
+/// Produce a list of Github Users, ordered by their contribution counts.
+pub fn user_contributions(client: &HttpClient) -> anyhow::Result<()> {
+    let body = users_query("Canada", None);
+
+    let mut resp = client
+        .post(V4_URL, body)
+        .context("There was a problem calling the Github GraphQL API.")?;
+
+    let text = resp.text()?;
+
+    let result: Query<SearchQuery> = serde_json::from_str(&text)
+        .with_context(|| format!("The response couldn't be decoded into JSON:\n{}", text))?;
+
+    println!("{:#?}", result);
+
+    Ok(())
 }
 
 #[derive(Debug, Deserialize)]

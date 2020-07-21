@@ -64,6 +64,7 @@ struct Repo {
     repos: Vec<(String, String)>,
 }
 
+/// Find the most active users in a given area.
 #[derive(Options)]
 struct Users {
     /// Print this help text.
@@ -72,6 +73,9 @@ struct Users {
     /// Github personal access token.
     #[options(required)]
     token: String,
+
+    /// The country to check (default: World).
+    area: Option<String>,
 }
 
 /// Check the Github API for remaining rate limit allowance.
@@ -122,7 +126,10 @@ fn report(result: anyhow::Result<String>) {
 }
 
 fn users(u: Users) -> anyhow::Result<String> {
-    Ok("Done!".to_string())
+    let client = credit::client(&u.token)?;
+    credit::user_contributions(&client)?;
+
+    Ok("".to_string())
 }
 
 fn json(j: Json) -> anyhow::Result<String> {

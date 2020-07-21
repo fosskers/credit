@@ -4,6 +4,7 @@ mod github;
 
 // Re-export.
 pub use github::rate_limit;
+pub use github::user_contributions;
 
 use anyhow::Context;
 use chrono::{DateTime, Utc};
