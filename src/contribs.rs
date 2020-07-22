@@ -15,20 +15,20 @@ const MAX_PAGES: u32 = 10 * (100 / PAGE_SIZE);
 
 #[derive(Debug, Deserialize)]
 struct SearchQuery {
-    search: github::Paged<UserContributions>,
+    search: github::Paged<UserContribs>,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct UserContributions {
+pub struct UserContribs {
     pub login: String,
     pub name: Option<String>,
     pub followers: Followers,
     pub contributions_collection: Contributions,
 }
 
-impl UserContributions {
-    pub fn contributions(&self) -> u32 {
+impl UserContribs {
+    pub fn contribs(&self) -> u32 {
         let total = self
             .contributions_collection
             .contribution_calendar
@@ -96,7 +96,7 @@ fn users_query(location: &str, page: Option<&str>) -> String {
 pub fn user_contributions(
     client: &HttpClient,
     location: &str,
-) -> anyhow::Result<Vec<UserContributions>> {
+) -> anyhow::Result<Vec<UserContribs>> {
     let progress = ProgressBar::new(MAX_PAGES as u64);
     let result = user_contributions_work(client, &progress, location, None, 1);
     progress.finish_and_clear();
@@ -109,7 +109,7 @@ fn user_contributions_work(
     location: &str,
     page: Option<&str>,
     page_num: u32,
-) -> anyhow::Result<Vec<UserContributions>> {
+) -> anyhow::Result<Vec<UserContribs>> {
     let body = users_query(location, page);
     match github::lookup::<SearchQuery>(client, body) {
         Err(_) => {
@@ -120,8 +120,7 @@ fn user_contributions_work(
             progress.inc(1);
             let page = result.search;
             let info = page.page_info;
-            let mut users: Vec<UserContributions> =
-                page.edges.into_iter().map(|n| n.node).collect();
+            let mut users: Vec<UserContribs> = page.edges.into_iter().map(|n| n.node).collect();
 
             match info.end_cursor {
                 // Ends early if we've found users with 0 followers.

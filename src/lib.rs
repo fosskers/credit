@@ -1,12 +1,11 @@
 //! A library for measuring Github repository contributions.
 
-mod contributions;
+mod contribs;
 mod github;
 mod limit;
 mod repo;
 
 // Re-export.
-pub use contributions::user_contributions;
 pub use limit::rate_limit;
 
 use anyhow::Context;
@@ -22,15 +21,8 @@ use std::time::Duration;
 /// A nicer collated form of the data pulled from Github regarding User
 /// Contributions.
 #[derive(Serialize)]
-pub struct UserContributions {
+pub struct UserContribs {
     pub contributions: Vec<User>,
-}
-
-impl From<Vec<contributions::UserContributions>> for UserContributions {
-    fn from(ucs: Vec<contributions::UserContributions>) -> Self {
-        let contributions = ucs.into_iter().map(|uc| User::from(uc)).collect();
-        UserContributions { contributions }
-    }
 }
 
 /// A user and their contributions.
@@ -41,9 +33,9 @@ pub struct User {
     pub public_contributions: u32,
 }
 
-impl From<contributions::UserContributions> for User {
-    fn from(uc: contributions::UserContributions) -> Self {
-        let public_contributions = uc.contributions();
+impl From<contribs::UserContribs> for User {
+    fn from(uc: contribs::UserContribs) -> Self {
+        let public_contributions = uc.contribs();
         User {
             login: uc.login,
             name: uc.name,
@@ -642,6 +634,23 @@ fn issue_thread(issue: repo::Issue) -> Thread {
         first_official_response,
         comments: comment_counts,
     }
+}
+
+/// A curated list of the Top 100 users in a given location, ranked via their
+/// contribution counts and weighted by followers.
+pub fn user_contributions(client: &HttpClient, location: &str) -> anyhow::Result<UserContribs> {
+    let contributions = contribs::user_contributions(client, location)?
+        .into_iter()
+        .sorted_by(|a, b| b.contribs().cmp(&a.contribs()))
+        .take(500)
+        .sorted_by(|a, b| b.followers.total_count.cmp(&a.followers.total_count))
+        .take(250)
+        .sorted_by(|a, b| b.contribs().cmp(&a.contribs()))
+        .take(100)
+        .map(|uc| User::from(uc))
+        .collect();
+
+    Ok(UserContribs { contributions })
 }
 
 fn hashmap_combine<K, V>(mut a: HashMap<K, V>, b: HashMap<K, V>) -> HashMap<K, V>

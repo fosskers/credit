@@ -130,22 +130,10 @@ fn users(u: Users) -> anyhow::Result<String> {
     let client = credit::client(&u.token)?;
     let users = credit::user_contributions(&client, &u.location)?;
 
-    for (i, user) in users
-        .iter()
-        .sorted_by(|a, b| b.contributions().cmp(&a.contributions()))
-        .take(500)
-        .sorted_by(|a, b| b.followers.total_count.cmp(&a.followers.total_count))
-        .take(250)
-        .sorted_by(|a, b| b.contributions().cmp(&a.contributions()))
-        .take(100)
-        .enumerate()
-    {
+    for (i, user) in users.contributions.iter().enumerate() {
         println!(
-            "{:02}. {} ({} contributions, {} followers)",
-            i,
-            user.login,
-            user.contributions(),
-            user.followers.total_count
+            "{:02}. {} ({} contributions)",
+            i, user.login, user.public_contributions,
         );
     }
 
