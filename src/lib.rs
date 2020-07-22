@@ -22,6 +22,7 @@ use std::time::Duration;
 /// Contributions.
 #[derive(Serialize)]
 pub struct UserContribs {
+    pub total_users: u32,
     pub contributions: Vec<User>,
 }
 
@@ -639,6 +640,7 @@ fn issue_thread(issue: repo::Issue) -> Thread {
 /// A curated list of the Top 100 users in a given location, ranked via their
 /// contribution counts and weighted by followers.
 pub fn user_contributions(client: &HttpClient, location: &str) -> anyhow::Result<UserContribs> {
+    let total_users = contribs::user_count(client, location)?.user_count;
     let contributions = contribs::user_contributions(client, location)?
         .into_iter()
         .sorted_by(|a, b| b.contribs().cmp(&a.contribs()))
@@ -650,7 +652,10 @@ pub fn user_contributions(client: &HttpClient, location: &str) -> anyhow::Result
         .map(|uc| User::from(uc))
         .collect();
 
-    Ok(UserContribs { contributions })
+    Ok(UserContribs {
+        total_users,
+        contributions,
+    })
 }
 
 fn hashmap_combine<K, V>(mut a: HashMap<K, V>, b: HashMap<K, V>) -> HashMap<K, V>

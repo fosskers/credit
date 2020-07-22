@@ -13,12 +13,12 @@ const PAGE_SIZE: u32 = 10;
 /// The maximum number of pages to pull when querying for user contributions.
 const MAX_PAGES: u32 = 10 * (100 / PAGE_SIZE);
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 struct SearchQuery {
     search: github::Paged<UserContribs>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UserContribs {
     pub login: String,
@@ -37,23 +37,46 @@ impl UserContribs {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Followers {
     pub total_count: u32,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Contributions {
     pub contribution_calendar: Calendar,
     pub restricted_contributions_count: u32,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Calendar {
     pub total_contributions: u32,
+}
+
+#[derive(Deserialize)]
+pub struct UserCountQuery {
+    pub search: UserCount,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UserCount {
+    pub user_count: u32,
+}
+
+fn user_count_query(location: &str) -> String {
+    format!(
+        "{{ \
+         \"query\": \"{{ \
+         search(type: USER, query: \\\"type:user location:{}\\\") {{ \
+           userCount
+         }}\" \
+         }}",
+        location,
+    )
 }
 
 fn users_query(location: &str, page: Option<&str>) -> String {
@@ -90,6 +113,13 @@ fn users_query(location: &str, page: Option<&str>) -> String {
         page.map(|p| format!(", after: \\\"{}\\\"", p))
             .unwrap_or_else(|| "".to_string()),
     )
+}
+
+/// How many users claim to be from a certain area?
+pub fn user_count(client: &HttpClient, location: &str) -> anyhow::Result<UserCount> {
+    let body = user_count_query(location);
+    let result: UserCountQuery = github::lookup(client, body)?;
+    Ok(result.search)
 }
 
 /// Produce a list of Github Users, ordered by their contribution counts.
