@@ -4,9 +4,11 @@ use crate::github;
 use indicatif::ProgressBar;
 use isahc::prelude::*;
 use serde::Deserialize;
+use std::thread;
+use std::time::Duration;
 
 /// The maximum number of results to fetch in a page.
-const PAGE_SIZE: u32 = 5;
+const PAGE_SIZE: u32 = 10;
 
 /// The maximum number of pages to pull when querying for user contributions.
 const MAX_PAGES: u32 = 10 * (100 / PAGE_SIZE);
@@ -108,22 +110,41 @@ fn user_contributions_work(
     page: Option<&str>,
     page_num: u32,
 ) -> anyhow::Result<Vec<UserContributions>> {
-    progress.inc(1);
-
     let body = users_query(location, page);
-    let result: SearchQuery = github::lookup(client, body)?;
-
-    let page = result.search;
-    let info = page.page_info;
-    let mut users: Vec<UserContributions> = page.edges.into_iter().map(|n| n.node).collect();
-
-    match info.end_cursor {
-        Some(c) if info.has_next_page && page_num < MAX_PAGES => {
-            let mut next =
-                user_contributions_work(client, progress, location, Some(&c), page_num + 1)?;
-            users.append(&mut next);
-            Ok(users)
+    match github::lookup::<SearchQuery>(client, body) {
+        Err(_) => {
+            thread::sleep(Duration::from_secs(10));
+            user_contributions_work(client, progress, location, page, page_num)
         }
-        _ => Ok(users),
+        Ok(result) => {
+            progress.inc(1);
+            let page = result.search;
+            let info = page.page_info;
+            let mut users: Vec<UserContributions> =
+                page.edges.into_iter().map(|n| n.node).collect();
+
+            match info.end_cursor {
+                // Ends early if we've found users with 0 followers.
+                Some(c)
+                    if info.has_next_page
+                        && page_num < MAX_PAGES
+                        && users
+                            .last()
+                            .map(|uc| uc.followers.total_count > 0)
+                            .unwrap_or(false) =>
+                {
+                    let mut next = user_contributions_work(
+                        client,
+                        progress,
+                        location,
+                        Some(&c),
+                        page_num + 1,
+                    )?;
+                    users.append(&mut next);
+                    Ok(users)
+                }
+                _ => Ok(users),
+            }
+        }
     }
 }
