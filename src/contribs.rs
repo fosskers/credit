@@ -131,6 +131,7 @@ pub fn user_contributions(
     client: &HttpClient,
     location: &str,
 ) -> anyhow::Result<Vec<UserContribs>> {
+    eprintln!("Fetching data pages from Github...");
     let progress = ProgressBar::new(MAX_PAGES as u64);
     let result = user_contributions_work(client, &progress, location, None, 1, 1);
     progress.finish_and_clear();
