@@ -1,6 +1,6 @@
 # credit
 
-## Unreleased
+## 1.2.0 (2020-07-22)
 
 #### Added
 
