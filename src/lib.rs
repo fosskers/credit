@@ -19,6 +19,39 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Duration;
 
+/// A nicer collated form of the data pulled from Github regarding User
+/// Contributions.
+#[derive(Serialize)]
+pub struct UserContributions {
+    pub contributions: Vec<User>,
+}
+
+impl From<Vec<contributions::UserContributions>> for UserContributions {
+    fn from(ucs: Vec<contributions::UserContributions>) -> Self {
+        let contributions = ucs.into_iter().map(|uc| User::from(uc)).collect();
+        UserContributions { contributions }
+    }
+}
+
+/// A user and their contributions.
+#[derive(Serialize)]
+pub struct User {
+    pub login: String,
+    pub name: Option<String>,
+    pub public_contributions: u32,
+}
+
+impl From<contributions::UserContributions> for User {
+    fn from(uc: contributions::UserContributions) -> Self {
+        let public_contributions = uc.contributions();
+        User {
+            login: uc.login,
+            name: uc.name,
+            public_contributions,
+        }
+    }
+}
+
 /// Any type that contains a `Thread`.
 trait Threaded {
     fn the_thread(&self) -> &Thread;
