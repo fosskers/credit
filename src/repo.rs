@@ -1,7 +1,6 @@
 //! Types and functions for the `repo` command.
 
 use crate::github;
-use anyhow::Context;
 use chrono::{DateTime, Utc};
 use isahc::prelude::*;
 use serde::Deserialize;
@@ -159,17 +158,9 @@ fn issues_work(
     page: Option<&str>,
 ) -> anyhow::Result<Vec<Issue>> {
     let body = issue_query(mode, owner, repo, page);
+    let issue_query: IssueRepo = github::lookup(client, body)?;
 
-    let mut resp = client
-        .post(github::V4_URL, body)
-        .context("There was a problem calling the Github GraphQL API.")?;
-
-    let text = resp.text()?;
-
-    let issue_query: github::Query<IssueRepo> = serde_json::from_str(&text)
-        .with_context(|| format!("The response couldn't be decoded into JSON:\n{}", text))?;
-
-    let page = issue_query.data.repository.page();
+    let page = issue_query.repository.page();
     let info = page.page_info;
     let mut issues: Vec<Issue> = page.edges.into_iter().map(|n| n.node).collect();
 

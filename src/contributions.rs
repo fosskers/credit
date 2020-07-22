@@ -1,7 +1,6 @@
 //! Types and functions for the `users` command.
 
 use crate::github;
-use anyhow::Context;
 use indicatif::ProgressBar;
 use isahc::prelude::*;
 use serde::Deserialize;
@@ -113,17 +112,9 @@ fn user_contributions_work(
     bar.inc(1);
 
     let body = users_query(location, page);
+    let result: SearchQuery = github::lookup(client, body)?;
 
-    let mut resp = client
-        .post(github::V4_URL, body)
-        .context("There was a problem calling the Github GraphQL API.")?;
-
-    let text = resp.text()?;
-
-    let result: github::Query<SearchQuery> = serde_json::from_str(&text)
-        .with_context(|| format!("The response couldn't be decoded into JSON:\n{}", text))?;
-
-    let page = result.data.search;
+    let page = result.search;
     let info = page.page_info;
     let mut users: Vec<UserContributions> = page.edges.into_iter().map(|n| n.node).collect();
 

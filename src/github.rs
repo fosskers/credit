@@ -6,7 +6,7 @@ use serde::de::DeserializeOwned;
 use serde::Deserialize;
 
 /// The never-changing URL to POST to for any V4 request.
-pub const V4_URL: &str = "https://api.github.com/graphql";
+const V4_URL: &str = "https://api.github.com/graphql";
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -33,8 +33,8 @@ pub struct Paged<A> {
 }
 
 /// The top-level results of a GraphQL query.
-#[derive(Debug, Deserialize)]
-pub struct Query<A> {
+#[derive(Deserialize)]
+struct Query<A> {
     pub data: A,
 }
 
