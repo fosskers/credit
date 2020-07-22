@@ -4,11 +4,11 @@
 [![](https://img.shields.io/crates/v/credit.svg)](https://crates.io/crates/credit)
 ![AUR version](https://img.shields.io/aur/version/credit-bin)
 
-`credit` is a fast tool for measuring Github repository contributions and the
-overall health of a project.
+`credit` is a fast tool for measuring Github contributions.
 
 Use `credit` to find out:
 
+- Who the most productive developers are in a given country.
 - Who has the most Pull Requests merged to a project.
 - Who engages in the most discussion in Issues and PRs.
 - How long it takes maintainers to respond to and solve Issues.
@@ -18,20 +18,22 @@ Use `credit` to find out:
 <!-- markdown-toc start - Don't edit this section. Run M-x markdown-toc-refresh-toc -->
 **Table of Contents**
 
-- [Installation](#installation)
-    - [Arch Linux](#arch-linux)
-    - [Cargo](#cargo)
-- [Usage](#usage)
-    - [Markdown Output](#markdown-output)
-    - [JSON Output](#json-output)
-    - [Large Projects](#large-projects)
-- [FAQ](#faq)
-    - [How accurate is this?](#how-accurate-is-this)
-    - [Can I see commit counts too?](#can-i-see-commit-counts-too)
-    - [Why do the *Median* and *Average* values differ?](#why-do-the-median-and-average-values-differ)
+- [Credit](#credit)
+    - [Installation](#installation)
+        - [Arch Linux](#arch-linux)
+        - [Cargo](#cargo)
+    - [Usage](#usage)
+        - [Repository Analysis](#repository-analysis)
+            - [Markdown Output](#markdown-output)
+            - [JSON Output](#json-output)
+            - [Large Projects](#large-projects)
+        - [Developer Rankings](#developer-rankings)
+    - [FAQ](#faq)
+        - [How accurate is this?](#how-accurate-is-this)
+        - [Can I see commit counts too?](#can-i-see-commit-counts-too)
+        - [Why do the *Median* and *Average* values differ?](#why-do-the-median-and-average-values-differ)
 
 <!-- markdown-toc end -->
-
 
 ## Installation
 
@@ -62,7 +64,9 @@ here](https://github.com/fosskers/active#oauth) for an additional example.
 >
 > You can use `credit limit` to check your current API query allowance.
 
-### Markdown Output
+### Repository Analysis
+
+#### Markdown Output
 
 By default, `credit` outputs text to stdout that can be piped into a `.md` file
 and displayed as you wish:
@@ -138,7 +142,7 @@ Top 10 Code Contributors (by merged PRs):
 > results will be aggregated, which can give a good view of contributions across
 > an organization.
 
-### JSON Output
+#### JSON Output
 
 You can also output the raw results as `--json`, which could then be piped to
 tools like [`jq`](https://github.com/stedolan/jq) or manipulated as you wish:
@@ -147,7 +151,8 @@ tools like [`jq`](https://github.com/stedolan/jq) or manipulated as you wish:
 > credit repo --token=<token> rust-lang/rustfmt --json
 ```
 
-### Large Projects
+#### Large Projects
+
 By default, `credit` queries for Issues and Pull Requests at the same time,
 which is fast and works well for most projects. For *very* large projects,
 however, this can make the Github API unhappy.
@@ -160,6 +165,40 @@ compiler](https://github.com/rust-lang/rust) itself!
 ```
 > credit repo --token=<token> rust-lang/rust --serial
 ```
+
+### Developer Rankings
+
+`credit users` can be used to determine a rough list of the most productive Open
+Source programmers in a given country. This reports a similar number to the one
+seen on a "Contribution Calendar", although contributions to private
+repositories have been subtracted.
+
+```
+> credit users --token=<token> --location=Switzerland
+```
+
+> **💡 Note:** Due to the nature of the query made to Github, the data fetching
+> will take several minutes to complete.
+
+```
+# Top 100 Open Source Contributors in Switzerland
+
+There are currently 18518 Github users in Switzerland.
+
+  1. oleg-nenashev (7331 contributions)
+  2. cclauss (6378 contributions)
+  3. dpryan79 (5604 contributions)
+  4. peterpeterparker (4869 contributions)
+  5. ReneNyffenegger (4722 contributions)
+  6. eregon (4415 contributions)
+  7. jeremytammik (3864 contributions)
+  8. liufengyun (3787 contributions)
+  9. swissspidy (3775 contributions)
+ 10. pvizeli (3706 contributions)
+... and so on
+```
+
+As with `repo`, the `--json` flag can be used to output JSON data instead.
 
 ## FAQ
 
@@ -177,7 +216,17 @@ can be difficult to measure. Some PRs are long, but do little. Some PRs are only
 a single commit, but save the company. `credit` takes the stance that, over
 time, with a large enough sample size, general trends of "who's doing the work"
 will emerge. **Expect weird results** for one-man projects or projects that
-otherwise have a long history of pushing directly to `master` without using PRs.
+otherwise have a long history of pushing directly to `master** without using PRs.
+
+**User Rankings:** What is a "Top Developer" anyway? Since it is possible to
+artificially inflates one's contribution numbers, `credit` uses the following
+assumption to filter out false positives:
+
+> Users with both high contribution counts and somewhat high follower counts
+> must be working on something of value.
+
+So, at first only the top 1,000 most followed developers are considered.
+Afterward, other metrics are applied to arrive at a fair list of the Top 100.
 
 ### Can I see commit counts too?
 
