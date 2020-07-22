@@ -77,6 +77,9 @@ struct Users {
     /// The country to check.
     #[options(required)]
     location: String,
+
+    /// Output as JSON.
+    json: bool,
 }
 
 /// Check the Github API for remaining rate limit allowance.
@@ -129,7 +132,13 @@ fn report(result: anyhow::Result<String>) {
 fn users(u: Users) -> anyhow::Result<String> {
     let client = credit::client(&u.token)?;
     let users = credit::user_contributions(&client, &u.location)?;
-    Ok(users.to_string())
+
+    if u.json {
+        let json = serde_json::to_string(&users)?;
+        Ok(json)
+    } else {
+        Ok(users.to_string())
+    }
 }
 
 fn json(j: Json) -> anyhow::Result<String> {
