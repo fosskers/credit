@@ -8,10 +8,13 @@ use std::thread;
 use std::time::Duration;
 
 /// The maximum number of results to fetch in a page.
-const PAGE_SIZE: u32 = 10;
+const PAGE_SIZE: u32 = 5;
 
 /// The maximum number of pages to pull when querying for user contributions.
 const MAX_PAGES: u32 = 10 * (100 / PAGE_SIZE);
+
+/// Only attempt to query for a page this many times.
+const MAX_ATTEMPTS: u32 = 10;
 
 #[derive(Deserialize)]
 struct SearchQuery {
@@ -129,7 +132,7 @@ pub fn user_contributions(
     location: &str,
 ) -> anyhow::Result<Vec<UserContribs>> {
     let progress = ProgressBar::new(MAX_PAGES as u64);
-    let result = user_contributions_work(client, &progress, location, None, 1);
+    let result = user_contributions_work(client, &progress, location, None, 1, 1);
     progress.finish_and_clear();
     result
 }
@@ -140,13 +143,15 @@ fn user_contributions_work(
     location: &str,
     page: Option<&str>,
     page_num: u32,
+    attempts: u32,
 ) -> anyhow::Result<Vec<UserContribs>> {
     let body = users_query(location, page);
     match github::lookup::<SearchQuery>(client, body) {
-        Err(_) => {
+        Err(_) if attempts < MAX_ATTEMPTS => {
             thread::sleep(Duration::from_secs(10));
-            user_contributions_work(client, progress, location, page, page_num)
+            user_contributions_work(client, progress, location, page, page_num, attempts + 1)
         }
+        Err(e) => Err(e),
         Ok(result) => {
             progress.inc(1);
             let page = result.search;
@@ -169,6 +174,7 @@ fn user_contributions_work(
                         location,
                         Some(&c),
                         page_num + 1,
+                        1,
                     )?;
                     users.append(&mut next);
                     Ok(users)
