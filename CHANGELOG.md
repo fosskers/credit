@@ -1,5 +1,26 @@
 # credit
 
+## Unreleased
+
+#### Added
+
+- New `users` command to produce per-country Developer Rankings.
+
+```
+> credit users --token=<token> --location=Switzerland
+
+# Top 100 Open Source Contributors in Switzerland
+
+There are currently 18518 Github users in Switzerland.
+
+  1. oleg-nenashev (7331 contributions)
+  2. cclauss (6378 contributions)
+  3. dpryan79 (5604 contributions)
+  4. peterpeterparker (4869 contributions)
+  5. ReneNyffenegger (4722 contributions)
+... and so on.
+```
+
 ## 1.1.1 (2020-07-18)
 
 #### Changed
