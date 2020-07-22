@@ -133,10 +133,11 @@ fn users(u: Users) -> anyhow::Result<String> {
     for (i, user) in users
         .iter()
         .sorted_by(|a, b| b.contributions().cmp(&a.contributions()))
-        .take(200)
+        .take(500)
         .sorted_by(|a, b| b.followers.total_count.cmp(&a.followers.total_count))
-        .take(100)
+        .take(250)
         .sorted_by(|a, b| b.contributions().cmp(&a.contributions()))
+        .take(100)
         .enumerate()
     {
         println!(
