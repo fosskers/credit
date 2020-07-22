@@ -128,13 +128,15 @@ fn report(result: anyhow::Result<String>) {
 
 fn users(u: Users) -> anyhow::Result<String> {
     let client = credit::client(&u.token)?;
-    let mut users = credit::user_contributions(&client, &u.location)?;
-    users.sort_by(|a, b| b.contributions().cmp(&a.contributions()));
+    let users = credit::user_contributions(&client, &u.location)?;
 
     for (i, user) in users
         .iter()
-        .filter(|u| u.followers.total_count > 0) // Must be more than the mean / median?
+        .sorted_by(|a, b| b.contributions().cmp(&a.contributions()))
+        .take(200)
+        .sorted_by(|a, b| b.followers.total_count.cmp(&a.followers.total_count))
         .take(100)
+        .sorted_by(|a, b| b.contributions().cmp(&a.contributions()))
         .enumerate()
     {
         println!(
