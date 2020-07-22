@@ -1,7 +1,6 @@
 //! Types and functions for the `limit` command.
 
 use crate::github;
-use anyhow::Context;
 use chrono::{DateTime, Utc};
 use isahc::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -32,14 +31,6 @@ struct RateLimitQuery {
 
 /// Discover the remaining API quota for the given token.
 pub fn rate_limit(client: &HttpClient) -> anyhow::Result<RateLimit> {
-    let mut resp = client
-        .post(github::V4_URL, LIMIT_QUERY)
-        .context("There was a problem calling the Github GraphQL API.")?;
-
-    let text = resp.text()?;
-
-    let limit_query: github::Query<RateLimitQuery> = serde_json::from_str(&text)
-        .with_context(|| format!("The response couldn't be decoded into JSON:\n{}", text))?;
-
-    Ok(limit_query.data.rate_limit)
+    let result: RateLimitQuery = github::lookup(client, LIMIT_QUERY.to_string())?;
+    Ok(result.rate_limit)
 }
