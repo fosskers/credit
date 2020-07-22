@@ -2,10 +2,11 @@
 
 mod contributions;
 mod github;
+mod limit;
 
 // Re-export.
 pub use contributions::user_contributions;
-pub use github::rate_limit;
+pub use limit::rate_limit;
 
 use anyhow::Context;
 use chrono::{DateTime, Utc};

@@ -1,3 +1,5 @@
+//! Types and functions for the `users` command.
+
 use crate::github;
 use anyhow::Context;
 use indicatif::ProgressBar;
