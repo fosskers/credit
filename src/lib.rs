@@ -3,6 +3,7 @@
 mod contributions;
 mod github;
 mod limit;
+mod repo;
 
 // Re-export.
 pub use contributions::user_contributions;
@@ -528,7 +529,7 @@ fn all_issues(
     owner: &str,
     repo: &str,
 ) -> anyhow::Result<Vec<Issue>> {
-    github::issues(client, end, &github::Mode::Issues, owner, repo).map(|is| {
+    repo::issues(client, end, &repo::Mode::Issues, owner, repo).map(|is| {
         is.into_iter()
             .filter(|i| {
                 let after = start.map(|s| i.created_at >= s).unwrap_or(true);
@@ -549,11 +550,11 @@ fn all_prs(
     repo: &str,
 ) -> anyhow::Result<Vec<PR>> {
     let mode = if commits {
-        github::Mode::PRsWithCommits
+        repo::Mode::PRsWithCommits
     } else {
-        github::Mode::PRs
+        repo::Mode::PRs
     };
-    github::issues(client, end, &mode, owner, repo).map(|is| {
+    repo::issues(client, end, &mode, owner, repo).map(|is| {
         is.into_iter()
             .filter(|i| {
                 let after = start.map(|s| i.created_at >= s).unwrap_or(true);
@@ -574,15 +575,15 @@ fn all_prs(
     })
 }
 
-fn ghost(author: &Option<github::Author>) -> String {
+fn ghost(author: &Option<repo::Author>) -> String {
     author
         .as_ref()
         .map(|a| a.login.clone())
         .unwrap_or_else(|| "@ghost".to_string())
 }
 
-fn issue_thread(issue: github::Issue) -> Thread {
-    let comments: Vec<github::Comment> = issue.comments.edges.into_iter().map(|n| n.node).collect();
+fn issue_thread(issue: repo::Issue) -> Thread {
+    let comments: Vec<repo::Comment> = issue.comments.edges.into_iter().map(|n| n.node).collect();
 
     // Need to be careful, since the first physical response might have been
     // from the Issue author.
