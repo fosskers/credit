@@ -95,21 +95,20 @@ pub fn user_contributions(
     client: &HttpClient,
     location: &str,
 ) -> anyhow::Result<Vec<UserContributions>> {
-    let bar = ProgressBar::new(MAX_PAGES as u64);
-    bar.set_message("Fetching User contributions...");
-    let result = user_contributions_work(client, &bar, location, None, 1);
-    bar.finish_and_clear();
+    let progress = ProgressBar::new(MAX_PAGES as u64);
+    let result = user_contributions_work(client, &progress, location, None, 1);
+    progress.finish_and_clear();
     result
 }
 
 fn user_contributions_work(
     client: &HttpClient,
-    bar: &ProgressBar,
+    progress: &ProgressBar,
     location: &str,
     page: Option<&str>,
     page_num: u32,
 ) -> anyhow::Result<Vec<UserContributions>> {
-    bar.inc(1);
+    progress.inc(1);
 
     let body = users_query(location, page);
     let result: SearchQuery = github::lookup(client, body)?;
@@ -120,7 +119,8 @@ fn user_contributions_work(
 
     match info.end_cursor {
         Some(c) if info.has_next_page && page_num < MAX_PAGES => {
-            let mut next = user_contributions_work(client, bar, location, Some(&c), page_num + 1)?;
+            let mut next =
+                user_contributions_work(client, progress, location, Some(&c), page_num + 1)?;
             users.append(&mut next);
             Ok(users)
         }
