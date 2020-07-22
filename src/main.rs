@@ -129,15 +129,7 @@ fn report(result: anyhow::Result<String>) {
 fn users(u: Users) -> anyhow::Result<String> {
     let client = credit::client(&u.token)?;
     let users = credit::user_contributions(&client, &u.location)?;
-
-    for (i, user) in users.contributions.iter().enumerate() {
-        println!(
-            "{:02}. {} ({} contributions)",
-            i, user.login, user.public_contributions,
-        );
-    }
-
-    Ok("".to_string())
+    Ok(users.to_string())
 }
 
 fn json(j: Json) -> anyhow::Result<String> {

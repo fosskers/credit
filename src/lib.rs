@@ -16,14 +16,41 @@ use isahc::prelude::*;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fmt;
 use std::time::Duration;
 
 /// A nicer collated form of the data pulled from Github regarding User
 /// Contributions.
 #[derive(Serialize)]
 pub struct UserContribs {
+    pub location: String,
     pub total_users: u32,
     pub contributions: Vec<User>,
+}
+
+impl fmt::Display for UserContribs {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "# Top 100 Open Source Contributors in {}\n\n",
+            self.location
+        )?;
+        write!(
+            f,
+            "There are currently {} Github users in {}.\n\n",
+            self.total_users, self.location
+        )?;
+        for (i, user) in self.contributions.iter().enumerate() {
+            writeln!(
+                f,
+                "{:3}. {} ({} contributions)",
+                i + 1,
+                user.login,
+                user.public_contributions
+            )?;
+        }
+        Ok(())
+    }
 }
 
 /// A user and their contributions.
@@ -653,6 +680,7 @@ pub fn user_contributions(client: &HttpClient, location: &str) -> anyhow::Result
         .collect();
 
     Ok(UserContribs {
+        location: location.to_string(),
         total_users,
         contributions,
     })

@@ -71,9 +71,10 @@ fn user_count_query(location: &str) -> String {
     format!(
         "{{ \
          \"query\": \"{{ \
-         search(type: USER, query: \\\"type:user location:{}\\\") {{ \
-           userCount
-         }}\" \
+             search(type: USER, query: \\\"type:user location:{}\\\") {{ \
+               userCount \
+             }} \
+           }}\" \
          }}",
         location,
     )
