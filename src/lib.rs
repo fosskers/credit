@@ -523,6 +523,10 @@ pub fn client(token: &str) -> anyhow::Result<Client> {
         header::AUTHORIZATION,
         header::HeaderValue::from_str(&format!("bearer {}", token))?,
     );
+    headers.insert(
+        header::USER_AGENT,
+        header::HeaderValue::from_static("credit"),
+    );
 
     let client = Client::builder()
         .default_headers(headers)
