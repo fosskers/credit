@@ -1,5 +1,12 @@
 # credit
 
+## 1.2.1 (2020-08-10)
+
+#### Changed
+
+- Swapped `isahc` for `reqwest`, which allows `credit` to be compiled with the
+  MUSL target and be fully statically linked.
+
 ## 1.2.0 (2020-07-22)
 
 #### Added

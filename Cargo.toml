@@ -1,6 +1,6 @@
 [package]
 name = "credit"
-version = "1.2.0"
+version = "1.2.1"
 authors = ["Colin Woodbury <colin@fosskers.ca>"]
 edition = "2018"
 description = "A fast tool for measuring Github repository contributions."
