@@ -2,7 +2,7 @@
 
 use crate::github;
 use indicatif::ProgressBar;
-use isahc::prelude::*;
+use reqwest::blocking::Client;
 use serde::Deserialize;
 use std::thread;
 use std::time::Duration;
@@ -120,17 +120,14 @@ fn users_query(location: &str, page: Option<&str>) -> String {
 }
 
 /// How many users claim to be from a certain area?
-pub fn user_count(client: &HttpClient, location: &str) -> anyhow::Result<UserCount> {
+pub fn user_count(client: &Client, location: &str) -> anyhow::Result<UserCount> {
     let body = user_count_query(location);
     let result: UserCountQuery = github::lookup(client, body)?;
     Ok(result.search)
 }
 
 /// Produce a list of Github Users, ordered by their contribution counts.
-pub fn user_contributions(
-    client: &HttpClient,
-    location: &str,
-) -> anyhow::Result<Vec<UserContribs>> {
+pub fn user_contributions(client: &Client, location: &str) -> anyhow::Result<Vec<UserContribs>> {
     eprintln!("Fetching data pages from Github...");
     let progress = ProgressBar::new(MAX_PAGES as u64);
     let result = user_contributions_work(client, &progress, location, None, 1, 1);
@@ -139,7 +136,7 @@ pub fn user_contributions(
 }
 
 fn user_contributions_work(
-    client: &HttpClient,
+    client: &Client,
     progress: &ProgressBar,
     location: &str,
     page: Option<&str>,

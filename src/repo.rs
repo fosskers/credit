@@ -2,7 +2,7 @@
 
 use crate::github;
 use chrono::{DateTime, Utc};
-use isahc::prelude::*;
+use reqwest::blocking::Client;
 use serde::Deserialize;
 
 /// A single structure that represents the results from either an `issues` call
@@ -140,7 +140,7 @@ fn issue_query(mode: &Mode, owner: &str, repo: &str, page: Option<&str>) -> Stri
 
 /// Fetch all Issues or Pull Requests for a project, depending on the `Mode` given.
 pub fn issues(
-    client: &HttpClient,
+    client: &Client,
     end: &Option<DateTime<Utc>>,
     mode: &Mode,
     owner: &str,
@@ -150,7 +150,7 @@ pub fn issues(
 }
 
 fn issues_work(
-    client: &HttpClient,
+    client: &Client,
     end: &Option<DateTime<Utc>>,
     mode: &Mode,
     owner: &str,

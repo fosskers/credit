@@ -12,8 +12,9 @@ use anyhow::Context;
 use chrono::{DateTime, Utc};
 use counter::Counter;
 use indicatif::ProgressBar;
-use isahc::prelude::*;
 use itertools::Itertools;
+use reqwest::blocking::Client;
+use reqwest::header;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
@@ -516,9 +517,15 @@ Top 10 Code Contributors (by commits-in-merged-PRs):
 }
 
 /// Generate a client with preset headers for communicating with the Github API.
-pub fn client(token: &str) -> anyhow::Result<HttpClient> {
-    let client = HttpClient::builder()
-        .default_header("Authorization", format!("bearer {}", token))
+pub fn client(token: &str) -> anyhow::Result<Client> {
+    let mut headers = header::HeaderMap::new();
+    headers.insert(
+        header::AUTHORIZATION,
+        header::HeaderValue::from_str(&format!("bearer {}", token))?,
+    );
+
+    let client = Client::builder()
+        .default_headers(headers)
         .build()
         .context("Failed to create initial HTTP client.")?;
 
@@ -528,7 +535,7 @@ pub fn client(token: &str) -> anyhow::Result<HttpClient> {
 /// Given a repository name, look up the [`Thread`](struct.Thread.html)
 /// statistics of all its Issues.
 pub fn repo_threads(
-    client: &HttpClient,
+    client: &Client,
     ipb: &ProgressBar,
     ppb: &ProgressBar,
     serial: bool,
@@ -576,7 +583,7 @@ where
 }
 
 fn all_issues(
-    client: &HttpClient,
+    client: &Client,
     start: &Option<DateTime<Utc>>,
     end: &Option<DateTime<Utc>>,
     owner: &str,
@@ -595,7 +602,7 @@ fn all_issues(
 }
 
 fn all_prs(
-    client: &HttpClient,
+    client: &Client,
     start: &Option<DateTime<Utc>>,
     end: &Option<DateTime<Utc>>,
     commits: bool,
@@ -666,7 +673,7 @@ fn issue_thread(issue: repo::Issue) -> Thread {
 
 /// A curated list of the Top 100 users in a given location, ranked via their
 /// contribution counts and weighted by followers.
-pub fn user_contributions(client: &HttpClient, location: &str) -> anyhow::Result<UserContribs> {
+pub fn user_contributions(client: &Client, location: &str) -> anyhow::Result<UserContribs> {
     let total_users = contribs::user_count(client, location)?.user_count;
     let contributions = contribs::user_contributions(client, location)?
         .into_iter()

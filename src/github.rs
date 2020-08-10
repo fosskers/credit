@@ -1,7 +1,7 @@
 //! Github API types in reduced forms.
 
 use anyhow::Context;
-use isahc::prelude::*;
+use reqwest::blocking::Client;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 
@@ -39,12 +39,14 @@ struct Query<A> {
 }
 
 /// Perform some generalized Github query.
-pub fn lookup<A>(client: &HttpClient, query: String) -> anyhow::Result<A>
+pub fn lookup<A>(client: &Client, query: String) -> anyhow::Result<A>
 where
     A: DeserializeOwned,
 {
-    let mut resp = client
-        .post(V4_URL, query)
+    let resp = client
+        .post(V4_URL)
+        .body(query)
+        .send()
         .context("There was a problem calling the Github GraphQL API.")?;
 
     let text = resp.text()?;
