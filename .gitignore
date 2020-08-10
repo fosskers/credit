@@ -2,3 +2,4 @@
 deps.png
 Cargo.lock
 rust.md
+deny.toml
