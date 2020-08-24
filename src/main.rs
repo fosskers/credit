@@ -15,6 +15,9 @@ struct Args {
     /// Print this help text.
     help: bool,
 
+    /// Print the current version of credit.
+    version: bool,
+
     /// Command to perform.
     #[options(command)]
     command: Option<Command>,
@@ -107,15 +110,20 @@ struct Json {
 fn main() {
     let args = Args::parse_args_or_exit(ParsingStyle::AllOptions);
 
-    let result = match args.command {
-        None => Err(anyhow!("No command specified. Did you mean to use `repo`?")),
-        Some(Command::Limit(l)) => limit(l),
-        Some(Command::Repo(r)) => repo(r),
-        Some(Command::Users(u)) => users(u),
-        Some(Command::Json(j)) => json(j),
-    };
+    if args.version {
+        let version = env!("CARGO_PKG_VERSION");
+        println!("{}", version);
+    } else {
+        let result = match args.command {
+            None => Err(anyhow!("No command specified. Did you mean to use `repo`?")),
+            Some(Command::Limit(l)) => limit(l),
+            Some(Command::Repo(r)) => repo(r),
+            Some(Command::Users(u)) => users(u),
+            Some(Command::Json(j)) => json(j),
+        };
 
-    report(result)
+        report(result)
+    }
 }
 
 /// Report results and exit with the appropriate code.
