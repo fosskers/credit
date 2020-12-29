@@ -216,7 +216,7 @@ can be difficult to measure. Some PRs are long, but do little. Some PRs are only
 a single commit, but save the company. `credit` takes the stance that, over
 time, with a large enough sample size, general trends of "who's doing the work"
 will emerge. **Expect weird results** for one-man projects or projects that
-otherwise have a long history of pushing directly to `master** without using PRs.
+otherwise have a long history of pushing directly to `master` without using PRs.
 
 **User Rankings:** What is a "Top Developer" anyway? Since it is possible to
 artificially inflates one's contribution numbers, `credit` uses the following
