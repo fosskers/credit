@@ -6,8 +6,15 @@ use gumdrop::{Options, ParsingStyle};
 use indicatif::{MultiProgress, ProgressBar};
 use itertools::Itertools;
 use rayon::prelude::*;
+use serde::Deserialize;
 use std::io::{self, Read};
 use std::{process, thread};
+
+/// Config that can be set in a `credit.toml` file.
+#[derive(Deserialize, Default)]
+struct Config {
+    token: Option<String>,
+}
 
 /// A tool for measuring repository contributions.
 #[derive(Options)]
@@ -35,6 +42,17 @@ enum Command {
     Json(Json),
 }
 
+impl Command {
+    fn token(&self) -> Option<String> {
+        match self {
+            Command::Repo(r) => r.token.clone(),
+            Command::Users(u) => u.token.clone(),
+            Command::Limit(l) => l.token.clone(),
+            Command::Json(_) => None,
+        }
+    }
+}
+
 /// Analyse repository contributions.
 #[derive(Options)]
 struct Repo {
@@ -42,8 +60,7 @@ struct Repo {
     help: bool,
 
     /// Github personal access token.
-    #[options(required)]
-    token: String,
+    token: Option<String>,
 
     /// Look up Pull Request commit counts as well.
     commits: bool,
@@ -74,8 +91,7 @@ struct Users {
     help: bool,
 
     /// Github personal access token.
-    #[options(required)]
-    token: String,
+    token: Option<String>,
 
     /// The country to check.
     #[options(required)]
@@ -92,8 +108,7 @@ struct Limit {
     help: bool,
 
     /// Github personal access token.
-    #[options(required)]
-    token: String,
+    token: Option<String>,
 }
 
 /// Accept JSON from a previous run of `credit` through `stdin`, and print
@@ -110,19 +125,41 @@ struct Json {
 fn main() {
     let args = Args::parse_args_or_exit(ParsingStyle::AllOptions);
 
-    if args.version {
-        let version = env!("CARGO_PKG_VERSION");
-        println!("{}", version);
-    } else {
-        let result = match args.command {
-            None => Err(anyhow!("No command specified. Did you mean to use `repo`?")),
-            Some(Command::Limit(l)) => limit(l),
-            Some(Command::Repo(r)) => repo(r),
-            Some(Command::Users(u)) => users(u),
-            Some(Command::Json(j)) => json(j),
-        };
+    match args.command {
+        _ if args.version => {
+            let version = env!("CARGO_PKG_VERSION");
+            println!("{}", version);
+        }
+        None => {
+            eprintln!("{}", Args::usage());
+            std::process::exit(1);
+        }
+        Some(cmd) => report(work(cmd)),
+    }
+}
 
-        report(result)
+fn work(command: Command) -> anyhow::Result<String> {
+    let mut config_path = xdg::BaseDirectories::new()?.get_config_home();
+    config_path.push("credit.toml");
+    let config: Config = std::fs::read_to_string(config_path)
+        .ok()
+        .and_then(|s| toml::from_str(&s).ok())
+        .unwrap_or_default();
+
+    match command {
+        Command::Limit(_) => match command.token().or(config.token) {
+            None => Err(anyhow!("No token given!")),
+            Some(token) => limit(&token),
+        },
+        Command::Repo(ref r) => match command.token().or(config.token) {
+            None => Err(anyhow!("No token given!")),
+            Some(token) => repo(&token, r),
+        },
+        Command::Users(ref u) => match command.token().or(config.token) {
+            None => Err(anyhow!("No token given!")),
+            Some(token) => users(&token, u),
+        },
+        Command::Json(j) => json(j),
     }
 }
 
@@ -137,8 +174,8 @@ fn report(result: anyhow::Result<String>) {
     }
 }
 
-fn users(u: Users) -> anyhow::Result<String> {
-    let users = credit::user_contributions(&u.token, &u.location)?;
+fn users(token: &str, u: &Users) -> anyhow::Result<String> {
+    let users = credit::user_contributions(token, &u.location)?;
 
     if u.json {
         let json = serde_json::to_string(&users)?;
@@ -156,14 +193,14 @@ fn json(j: Json) -> anyhow::Result<String> {
     Ok(stats.report("Unknown Project", j.commits))
 }
 
-fn limit(l: Limit) -> anyhow::Result<String> {
-    let rl = credit::rate_limit(&l.token)?;
+fn limit(token: &str) -> anyhow::Result<String> {
+    let rl = credit::rate_limit(token)?;
     let json = serde_json::to_string(&rl)?;
 
     Ok(json)
 }
 
-fn repo(r: Repo) -> anyhow::Result<String> {
+fn repo(token: &str, r: &Repo) -> anyhow::Result<String> {
     if r.repos.is_empty() {
         Err(anyhow!("No repositories given!"))
     } else {
@@ -187,7 +224,7 @@ fn repo(r: Repo) -> anyhow::Result<String> {
             .par_iter()
             .map(|(ipb, ppb, owner, repo)| {
                 credit::repo_threads(
-                    &r.token, &ipb, &ppb, r.serial, r.commits, &r.start, &r.end, &owner, &repo,
+                    token, &ipb, &ppb, r.serial, r.commits, &r.start, &r.end, &owner, &repo,
                 )
             })
             .partition_map(From::from);
