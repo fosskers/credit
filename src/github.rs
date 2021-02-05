@@ -1,7 +1,7 @@
 //! Github API types in reduced forms.
 
 use anyhow::Context;
-use curl::easy::Easy;
+use curl::easy::{Easy, List};
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use std::io::Read;
@@ -40,16 +40,19 @@ struct Query<A> {
 }
 
 /// Perform some generalized Github query.
-pub fn lookup<A>(query: String) -> anyhow::Result<A>
-where
-    A: DeserializeOwned,
-{
+pub fn lookup<A: DeserializeOwned>(token: &str, query: String) -> anyhow::Result<A> {
     let mut handle = Easy::new();
     let mut resp: Vec<u8> = Vec::new();
     handle.url(V4_URL)?;
     handle.fail_on_error(true)?;
     handle.post(true)?;
     handle.post_field_size(query.len() as u64)?;
+
+    // --- Add Headers --- //
+    let mut headers = List::new();
+    headers.append(&format!("authorization: bearer {}", token))?;
+    headers.append("user-agent: credit")?;
+    handle.http_headers(headers)?;
 
     // Blocked off to allow `resp` to be borrowed immutably below.
     {

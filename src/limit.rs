@@ -29,7 +29,7 @@ struct RateLimitQuery {
 }
 
 /// Discover the remaining API quota for the given token.
-pub fn rate_limit() -> anyhow::Result<RateLimit> {
-    let result: RateLimitQuery = github::lookup(LIMIT_QUERY.to_string())?;
+pub fn rate_limit(token: &str) -> anyhow::Result<RateLimit> {
+    let result: RateLimitQuery = github::lookup(token, LIMIT_QUERY.to_string())?;
     Ok(result.rate_limit)
 }

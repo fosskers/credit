@@ -120,23 +120,28 @@ fn users_query(location: &str, page: Option<&str>) -> String {
 }
 
 /// How many users claim to be from a certain area?
-pub fn user_count(location: &str) -> anyhow::Result<UserCount> {
+pub fn user_count(token: &str, location: &str) -> anyhow::Result<UserCount> {
     let body = user_count_query(location);
-    let result: UserCountQuery = github::lookup(body)?;
+    let result: UserCountQuery = github::lookup(token, body)?;
     Ok(result.search)
 }
 
 /// Produce a list of Github Users, ordered by their contribution counts.
-pub fn user_contributions(client: &Client, location: &str) -> anyhow::Result<Vec<UserContribs>> {
+pub fn user_contributions(
+    client: &Client,
+    token: &str,
+    location: &str,
+) -> anyhow::Result<Vec<UserContribs>> {
     eprintln!("Fetching data pages from Github...");
     let progress = ProgressBar::new(MAX_PAGES as u64);
-    let result = user_contributions_work(client, &progress, location, None, 1, 1);
+    let result = user_contributions_work(client, token, &progress, location, None, 1, 1);
     progress.finish_and_clear();
     result
 }
 
 fn user_contributions_work(
     client: &Client,
+    token: &str,
     progress: &ProgressBar,
     location: &str,
     page: Option<&str>,
@@ -144,10 +149,18 @@ fn user_contributions_work(
     attempts: u32,
 ) -> anyhow::Result<Vec<UserContribs>> {
     let body = users_query(location, page);
-    match github::lookup::<SearchQuery>(body) {
+    match github::lookup::<SearchQuery>(token, body) {
         Err(_) if attempts < MAX_ATTEMPTS => {
             thread::sleep(Duration::from_secs(10));
-            user_contributions_work(client, progress, location, page, page_num, attempts + 1)
+            user_contributions_work(
+                client,
+                token,
+                progress,
+                location,
+                page,
+                page_num,
+                attempts + 1,
+            )
         }
         Err(e) => Err(e),
         Ok(result) => {
@@ -168,6 +181,7 @@ fn user_contributions_work(
                 {
                     let mut next = user_contributions_work(
                         client,
+                        token,
                         progress,
                         location,
                         Some(&c),

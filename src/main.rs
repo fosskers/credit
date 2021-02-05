@@ -139,7 +139,7 @@ fn report(result: anyhow::Result<String>) {
 
 fn users(u: Users) -> anyhow::Result<String> {
     let client = credit::client(&u.token)?;
-    let users = credit::user_contributions(&client, &u.location)?;
+    let users = credit::user_contributions(&client, &u.token, &u.location)?;
 
     if u.json {
         let json = serde_json::to_string(&users)?;
@@ -158,8 +158,7 @@ fn json(j: Json) -> anyhow::Result<String> {
 }
 
 fn limit(l: Limit) -> anyhow::Result<String> {
-    // let client = credit::client(&l.token)?;
-    let rl = credit::rate_limit()?;
+    let rl = credit::rate_limit(&l.token)?;
     let json = serde_json::to_string(&rl)?;
 
     Ok(json)
@@ -191,7 +190,7 @@ fn repo(r: Repo) -> anyhow::Result<String> {
             .par_iter()
             .map(|(ipb, ppb, owner, repo)| {
                 credit::repo_threads(
-                    &c, &ipb, &ppb, r.serial, r.commits, &r.start, &r.end, &owner, &repo,
+                    &c, &r.token, &ipb, &ppb, r.serial, r.commits, &r.start, &r.end, &owner, &repo,
                 )
             })
             .partition_map(From::from);

@@ -540,6 +540,7 @@ pub fn client(token: &str) -> anyhow::Result<Client> {
 /// statistics of all its Issues.
 pub fn repo_threads(
     client: &Client,
+    token: &str,
     ipb: &ProgressBar,
     ppb: &ProgressBar,
     serial: bool,
@@ -552,8 +553,8 @@ pub fn repo_threads(
     let i_msg = format!("Fetching Issues for {}/{}...", owner, repo);
     let p_msg = format!("Fetching Pull Requests for {}/{}...", owner, repo);
 
-    let get_issues = || all_issues(client, start, end, owner, repo);
-    let get_prs = || all_prs(client, start, end, commits, owner, repo);
+    let get_issues = || all_issues(client, token, start, end, owner, repo);
+    let get_prs = || all_prs(client, token, start, end, commits, owner, repo);
 
     // Too much parallelism can trigger Github's abuse detection, so we offer
     // the "serial" option here.
@@ -588,12 +589,13 @@ where
 
 fn all_issues(
     client: &Client,
+    token: &str,
     start: &Option<DateTime<Utc>>,
     end: &Option<DateTime<Utc>>,
     owner: &str,
     repo: &str,
 ) -> anyhow::Result<Vec<Issue>> {
-    repo::issues(client, end, &repo::Mode::Issues, owner, repo).map(|is| {
+    repo::issues(client, token, end, &repo::Mode::Issues, owner, repo).map(|is| {
         is.into_iter()
             .filter(|i| {
                 let after = start.map(|s| i.created_at >= s).unwrap_or(true);
@@ -607,6 +609,7 @@ fn all_issues(
 
 fn all_prs(
     client: &Client,
+    token: &str,
     start: &Option<DateTime<Utc>>,
     end: &Option<DateTime<Utc>>,
     commits: bool,
@@ -618,7 +621,7 @@ fn all_prs(
     } else {
         repo::Mode::PRs
     };
-    repo::issues(client, end, &mode, owner, repo).map(|is| {
+    repo::issues(client, token, end, &mode, owner, repo).map(|is| {
         is.into_iter()
             .filter(|i| {
                 let after = start.map(|s| i.created_at >= s).unwrap_or(true);
@@ -677,9 +680,13 @@ fn issue_thread(issue: repo::Issue) -> Thread {
 
 /// A curated list of the Top 100 users in a given location, ranked via their
 /// contribution counts and weighted by followers.
-pub fn user_contributions(client: &Client, location: &str) -> anyhow::Result<UserContribs> {
-    let total_users = contribs::user_count(location)?.user_count;
-    let contributions = contribs::user_contributions(client, location)?
+pub fn user_contributions(
+    client: &Client,
+    token: &str,
+    location: &str,
+) -> anyhow::Result<UserContribs> {
+    let total_users = contribs::user_count(token, location)?.user_count;
+    let contributions = contribs::user_contributions(client, token, location)?
         .into_iter()
         .sorted_by(|a, b| b.contribs().cmp(&a.contribs()))
         .take(500)
