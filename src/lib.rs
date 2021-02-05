@@ -678,7 +678,7 @@ fn issue_thread(issue: repo::Issue) -> Thread {
 /// A curated list of the Top 100 users in a given location, ranked via their
 /// contribution counts and weighted by followers.
 pub fn user_contributions(client: &Client, location: &str) -> anyhow::Result<UserContribs> {
-    let total_users = contribs::user_count(client, location)?.user_count;
+    let total_users = contribs::user_count(location)?.user_count;
     let contributions = contribs::user_contributions(client, location)?
         .into_iter()
         .sorted_by(|a, b| b.contribs().cmp(&a.contribs()))

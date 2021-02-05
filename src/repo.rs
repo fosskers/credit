@@ -158,7 +158,7 @@ fn issues_work(
     page: Option<&str>,
 ) -> anyhow::Result<Vec<Issue>> {
     let body = issue_query(mode, owner, repo, page);
-    let issue_query: IssueRepo = github::lookup(client, body)?;
+    let issue_query: IssueRepo = github::lookup(body)?;
 
     let page = issue_query.repository.page();
     let info = page.page_info;

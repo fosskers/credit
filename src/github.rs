@@ -1,9 +1,10 @@
 //! Github API types in reduced forms.
 
 use anyhow::Context;
-use reqwest::blocking::Client;
+use curl::easy::Easy;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
+use std::io::Read;
 
 /// The never-changing URL to POST to for any V4 request.
 const V4_URL: &str = "https://api.github.com/graphql";
@@ -39,18 +40,29 @@ struct Query<A> {
 }
 
 /// Perform some generalized Github query.
-pub fn lookup<A>(client: &Client, query: String) -> anyhow::Result<A>
+pub fn lookup<A>(query: String) -> anyhow::Result<A>
 where
     A: DeserializeOwned,
 {
-    let resp = client
-        .post(V4_URL)
-        .body(query)
-        .send()
-        .context("There was a problem calling the Github GraphQL API.")?;
+    let mut handle = Easy::new();
+    let mut resp: Vec<u8> = Vec::new();
+    handle.url(V4_URL)?;
+    handle.fail_on_error(true)?;
+    handle.post(true)?;
+    handle.post_field_size(query.len() as u64)?;
 
-    let text = resp.text()?;
+    // Blocked off to allow `resp` to be borrowed immutably below.
+    {
+        let mut tx = handle.transfer();
+        tx.read_function(move |buf| Ok(query.as_bytes().read(buf).unwrap_or(0)))?;
+        tx.write_function(|data| {
+            resp.extend_from_slice(data);
+            Ok(data.len())
+        })?;
+        tx.perform()?;
+    }
 
+    let text = std::str::from_utf8(&resp)?;
     let result: Query<A> = serde_json::from_str(&text)
         .with_context(|| format!("The response couldn't be decoded into JSON:\n{}", text))?;
 

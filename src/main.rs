@@ -158,8 +158,8 @@ fn json(j: Json) -> anyhow::Result<String> {
 }
 
 fn limit(l: Limit) -> anyhow::Result<String> {
-    let client = credit::client(&l.token)?;
-    let rl = credit::rate_limit(&client)?;
+    // let client = credit::client(&l.token)?;
+    let rl = credit::rate_limit()?;
     let json = serde_json::to_string(&rl)?;
 
     Ok(json)

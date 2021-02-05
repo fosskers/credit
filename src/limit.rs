@@ -2,7 +2,6 @@
 
 use crate::github;
 use chrono::{DateTime, Utc};
-use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 
 const LIMIT_QUERY: &str = "{ \
@@ -30,7 +29,7 @@ struct RateLimitQuery {
 }
 
 /// Discover the remaining API quota for the given token.
-pub fn rate_limit(client: &Client) -> anyhow::Result<RateLimit> {
-    let result: RateLimitQuery = github::lookup(client, LIMIT_QUERY.to_string())?;
+pub fn rate_limit() -> anyhow::Result<RateLimit> {
+    let result: RateLimitQuery = github::lookup(LIMIT_QUERY.to_string())?;
     Ok(result.rate_limit)
 }
