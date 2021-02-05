@@ -2,7 +2,6 @@
 
 use crate::github;
 use chrono::{DateTime, Utc};
-use reqwest::blocking::Client;
 use serde::Deserialize;
 
 /// A single structure that represents the results from either an `issues` call
@@ -140,18 +139,16 @@ fn issue_query(mode: &Mode, owner: &str, repo: &str, page: Option<&str>) -> Stri
 
 /// Fetch all Issues or Pull Requests for a project, depending on the `Mode` given.
 pub fn issues(
-    client: &Client,
     token: &str,
     end: &Option<DateTime<Utc>>,
     mode: &Mode,
     owner: &str,
     repo: &str,
 ) -> anyhow::Result<Vec<Issue>> {
-    issues_work(client, token, end, mode, owner, repo, None)
+    issues_work(token, end, mode, owner, repo, None)
 }
 
 fn issues_work(
-    client: &Client,
     token: &str,
     end: &Option<DateTime<Utc>>,
     mode: &Mode,
@@ -174,7 +171,7 @@ fn issues_work(
 
     match info.end_cursor {
         Some(c) if info.has_next_page && !stop_early => {
-            let mut next = issues_work(client, token, end, mode, owner, repo, Some(&c))?;
+            let mut next = issues_work(token, end, mode, owner, repo, Some(&c))?;
             issues.append(&mut next);
             Ok(issues)
         }

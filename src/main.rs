@@ -138,8 +138,7 @@ fn report(result: anyhow::Result<String>) {
 }
 
 fn users(u: Users) -> anyhow::Result<String> {
-    let client = credit::client(&u.token)?;
-    let users = credit::user_contributions(&client, &u.token, &u.location)?;
+    let users = credit::user_contributions(&u.token, &u.location)?;
 
     if u.json {
         let json = serde_json::to_string(&users)?;
@@ -165,8 +164,6 @@ fn limit(l: Limit) -> anyhow::Result<String> {
 }
 
 fn repo(r: Repo) -> anyhow::Result<String> {
-    let c = credit::client(&r.token)?;
-
     if r.repos.is_empty() {
         Err(anyhow!("No repositories given!"))
     } else {
@@ -190,7 +187,7 @@ fn repo(r: Repo) -> anyhow::Result<String> {
             .par_iter()
             .map(|(ipb, ppb, owner, repo)| {
                 credit::repo_threads(
-                    &c, &r.token, &ipb, &ppb, r.serial, r.commits, &r.start, &r.end, &owner, &repo,
+                    &r.token, &ipb, &ppb, r.serial, r.commits, &r.start, &r.end, &owner, &repo,
                 )
             })
             .partition_map(From::from);

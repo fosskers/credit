@@ -2,7 +2,6 @@
 
 use crate::github;
 use indicatif::ProgressBar;
-use reqwest::blocking::Client;
 use serde::Deserialize;
 use std::thread;
 use std::time::Duration;
@@ -127,20 +126,15 @@ pub fn user_count(token: &str, location: &str) -> anyhow::Result<UserCount> {
 }
 
 /// Produce a list of Github Users, ordered by their contribution counts.
-pub fn user_contributions(
-    client: &Client,
-    token: &str,
-    location: &str,
-) -> anyhow::Result<Vec<UserContribs>> {
+pub fn user_contributions(token: &str, location: &str) -> anyhow::Result<Vec<UserContribs>> {
     eprintln!("Fetching data pages from Github...");
     let progress = ProgressBar::new(MAX_PAGES as u64);
-    let result = user_contributions_work(client, token, &progress, location, None, 1, 1);
+    let result = user_contributions_work(token, &progress, location, None, 1, 1);
     progress.finish_and_clear();
     result
 }
 
 fn user_contributions_work(
-    client: &Client,
     token: &str,
     progress: &ProgressBar,
     location: &str,
@@ -152,15 +146,7 @@ fn user_contributions_work(
     match github::lookup::<SearchQuery>(token, body) {
         Err(_) if attempts < MAX_ATTEMPTS => {
             thread::sleep(Duration::from_secs(10));
-            user_contributions_work(
-                client,
-                token,
-                progress,
-                location,
-                page,
-                page_num,
-                attempts + 1,
-            )
+            user_contributions_work(token, progress, location, page, page_num, attempts + 1)
         }
         Err(e) => Err(e),
         Ok(result) => {
@@ -180,7 +166,6 @@ fn user_contributions_work(
                             .unwrap_or(false) =>
                 {
                     let mut next = user_contributions_work(
-                        client,
                         token,
                         progress,
                         location,

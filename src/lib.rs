@@ -8,13 +8,10 @@ mod repo;
 // Re-export.
 pub use limit::rate_limit;
 
-use anyhow::Context;
 use chrono::{DateTime, Utc};
 use counter::Counter;
 use indicatif::ProgressBar;
 use itertools::Itertools;
-use reqwest::blocking::Client;
-use reqwest::header;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
@@ -516,30 +513,9 @@ Top 10 Code Contributors (by commits-in-merged-PRs):
     }
 }
 
-/// Generate a client with preset headers for communicating with the Github API.
-pub fn client(token: &str) -> anyhow::Result<Client> {
-    let mut headers = header::HeaderMap::new();
-    headers.insert(
-        header::AUTHORIZATION,
-        header::HeaderValue::from_str(&format!("bearer {}", token))?,
-    );
-    headers.insert(
-        header::USER_AGENT,
-        header::HeaderValue::from_static("credit"),
-    );
-
-    let client = Client::builder()
-        .default_headers(headers)
-        .build()
-        .context("Failed to create initial HTTP client.")?;
-
-    Ok(client)
-}
-
 /// Given a repository name, look up the [`Thread`](struct.Thread.html)
 /// statistics of all its Issues.
 pub fn repo_threads(
-    client: &Client,
     token: &str,
     ipb: &ProgressBar,
     ppb: &ProgressBar,
@@ -553,8 +529,8 @@ pub fn repo_threads(
     let i_msg = format!("Fetching Issues for {}/{}...", owner, repo);
     let p_msg = format!("Fetching Pull Requests for {}/{}...", owner, repo);
 
-    let get_issues = || all_issues(client, token, start, end, owner, repo);
-    let get_prs = || all_prs(client, token, start, end, commits, owner, repo);
+    let get_issues = || all_issues(token, start, end, owner, repo);
+    let get_prs = || all_prs(token, start, end, commits, owner, repo);
 
     // Too much parallelism can trigger Github's abuse detection, so we offer
     // the "serial" option here.
@@ -588,14 +564,13 @@ where
 }
 
 fn all_issues(
-    client: &Client,
     token: &str,
     start: &Option<DateTime<Utc>>,
     end: &Option<DateTime<Utc>>,
     owner: &str,
     repo: &str,
 ) -> anyhow::Result<Vec<Issue>> {
-    repo::issues(client, token, end, &repo::Mode::Issues, owner, repo).map(|is| {
+    repo::issues(token, end, &repo::Mode::Issues, owner, repo).map(|is| {
         is.into_iter()
             .filter(|i| {
                 let after = start.map(|s| i.created_at >= s).unwrap_or(true);
@@ -608,7 +583,6 @@ fn all_issues(
 }
 
 fn all_prs(
-    client: &Client,
     token: &str,
     start: &Option<DateTime<Utc>>,
     end: &Option<DateTime<Utc>>,
@@ -621,7 +595,7 @@ fn all_prs(
     } else {
         repo::Mode::PRs
     };
-    repo::issues(client, token, end, &mode, owner, repo).map(|is| {
+    repo::issues(token, end, &mode, owner, repo).map(|is| {
         is.into_iter()
             .filter(|i| {
                 let after = start.map(|s| i.created_at >= s).unwrap_or(true);
@@ -680,13 +654,9 @@ fn issue_thread(issue: repo::Issue) -> Thread {
 
 /// A curated list of the Top 100 users in a given location, ranked via their
 /// contribution counts and weighted by followers.
-pub fn user_contributions(
-    client: &Client,
-    token: &str,
-    location: &str,
-) -> anyhow::Result<UserContribs> {
+pub fn user_contributions(token: &str, location: &str) -> anyhow::Result<UserContribs> {
     let total_users = contribs::user_count(token, location)?.user_count;
-    let contributions = contribs::user_contributions(client, token, location)?
+    let contributions = contribs::user_contributions(token, location)?
         .into_iter()
         .sorted_by(|a, b| b.contribs().cmp(&a.contribs()))
         .take(500)
