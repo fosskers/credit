@@ -1,5 +1,24 @@
 # credit
 
+## 1.4.0 (2021-02-05)
+
+#### Added
+
+- A config file can now be defined at your `XDG_CONFIG_HOME`, which by default
+  is `$HOME/.config/credit.toml`. At the moment the only field is `token`:
+
+```toml
+token = "abc123"  # Your Github Access Token.
+```
+
+With this, you no longer need to pass `--token` on the command line.
+
+#### Changed
+
+- The dependency `reqwest` has been removed in favour of raw `curl`. This
+  reduces dependency count by about 100 crates, and the final stripped binary
+  size is now 1.5mb, down from about 4.5mb.
+
 ## 1.3.0 (2020-08-24)
 
 #### Added

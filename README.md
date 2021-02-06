@@ -28,6 +28,7 @@ Use `credit` to find out:
             - [JSON Output](#json-output)
             - [Large Projects](#large-projects)
         - [Developer Rankings](#developer-rankings)
+    - [Configuration](#configuration)
     - [FAQ](#faq)
         - [How accurate is this?](#how-accurate-is-this)
         - [Can I see commit counts too?](#can-i-see-commit-counts-too)
@@ -199,6 +200,17 @@ There are currently 18518 Github users in Switzerland.
 ```
 
 As with `repo`, the `--json` flag can be used to output JSON data instead.
+
+## Configuration
+
+A configuration file can be specified at your `XDG_CONFIG_HOME`, which by
+default is `$HOME/.config/credit.toml`.
+
+
+```toml
+# Your Github Access Token. With this set, you need not pass `--token` on the command line.
+token = "abc123"
+```
 
 ## FAQ
 
