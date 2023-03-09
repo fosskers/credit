@@ -58,27 +58,22 @@ impl Command {
 struct Repo {
     /// Print this help text.
     help: bool,
-
     /// Github personal access token.
     token: Option<String>,
-
     /// Look up Pull Request commit counts as well.
     commits: bool,
-
     /// Only consider contributions / comments after the given date.
     #[options(parse(try_from_str = "datetime"), meta = "YYYY-MM-DD")]
     start: Option<DateTime<Utc>>,
-
     /// Only consider contributions / comments before the given date.
     #[options(parse(try_from_str = "datetime"), meta = "YYYY-MM-DD")]
     end: Option<DateTime<Utc>>,
-
     /// Output as JSON.
     json: bool,
-
     /// Fetch Issues first, then PRs.
     serial: bool,
-
+    #[options(default = "10")]
+    limit: usize,
     /// A Github repository to check (can pass multiple times).
     #[options(free, parse(try_from_str = "split_repo"))]
     repos: Vec<(String, String)>,
@@ -89,14 +84,11 @@ struct Repo {
 struct Users {
     /// Print this help text.
     help: bool,
-
     /// Github personal access token.
     token: Option<String>,
-
     /// The country to check.
     #[options(required)]
     location: String,
-
     /// Output as JSON.
     json: bool,
 }
@@ -106,7 +98,6 @@ struct Users {
 struct Limit {
     /// Print this help text.
     help: bool,
-
     /// Github personal access token.
     token: Option<String>,
 }
@@ -117,7 +108,6 @@ struct Limit {
 struct Json {
     /// Print this help text.
     help: bool,
-
     /// Show Pull Request commit counts.
     commits: bool,
 }
@@ -190,7 +180,7 @@ fn json(j: Json) -> anyhow::Result<String> {
     io::stdin().read_to_string(&mut buffer)?;
     let stats: credit::Statistics = serde_json::from_str(&buffer)?;
 
-    Ok(stats.report("Unknown Project", j.commits))
+    Ok(stats.report("Unknown Project", 10, j.commits))
 }
 
 fn limit(token: &str) -> anyhow::Result<String> {
@@ -249,7 +239,7 @@ fn repo(token: &str, r: &Repo) -> anyhow::Result<String> {
                 Ok(json)
             } else {
                 let name = r.repos.iter().map(|(_, name)| name).join(", ");
-                Ok(stats.report(&name, r.commits))
+                Ok(stats.report(&name, r.limit, r.commits))
             }
         } else {
             Err(anyhow!("No results to show!"))

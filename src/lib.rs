@@ -358,7 +358,7 @@ pub struct Statistics {
 }
 
 impl Statistics {
-    pub fn report(self, repo: &str, commits: bool) -> String {
+    pub fn report(self, repo: &str, limit: usize, commits: bool) -> String {
         let issues = if self.all_issues == 0 {
             "No issues found.".to_string()
         } else {
@@ -466,14 +466,14 @@ Top 10 Code Contributors (by merged PRs):
             self.commentors
                 .into_iter()
                 .sorted_by(|a, b| b.1.cmp(&a.1))
-                .take(10)
+                .take(limit)
                 .enumerate()
                 .map(|(i, (name, issues))| format!("{:2}. {}: {}", i + 1, name, issues))
                 .join("\n"),
             self.code_contributors
                 .into_iter()
                 .sorted_by(|a, b| b.1.cmp(&a.1))
-                .take(10)
+                .take(limit)
                 .enumerate()
                 .map(|(i, (name, prs))| format!("{:2}. {}: {}", i + 1, name, prs))
                 .join("\n"),
@@ -488,7 +488,7 @@ Top 10 Code Contributors (by commits-in-merged-PRs):
                 self.contributor_commits
                     .into_iter()
                     .sorted_by(|a, b| b.1.cmp(&a.1))
-                    .take(10)
+                    .take(limit)
                     .enumerate()
                     .map(|(i, (name, commits))| format!("{:2}. {}: {}", i + 1, name, commits))
                     .join("\n"),
