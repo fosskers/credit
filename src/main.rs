@@ -1,6 +1,6 @@
 //! A tool for measuring repository contributions.
 
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use chrono::{DateTime, NaiveDate, Utc};
 use gumdrop::{Options, ParsingStyle};
 use indicatif::{MultiProgress, ProgressBar};
@@ -268,6 +268,9 @@ fn split_repo(repo: &str) -> anyhow::Result<(String, String)> {
 }
 
 fn datetime(date: &str) -> anyhow::Result<DateTime<Utc>> {
-    let naive = NaiveDate::parse_from_str(date, "%Y-%m-%d")?.and_hms(0, 0, 0);
+    let naive = NaiveDate::parse_from_str(date, "%Y-%m-%d")?
+        .and_hms_opt(0, 0, 0)
+        .context("Failed to parse date.")?;
+
     Ok(DateTime::from_utc(naive, Utc))
 }
